@@ -93,12 +93,33 @@
       color: #222;
       pointer-events: none;
     }
+
+    #capaOscura {
+      position: absolute;
+      inset: 0;
+      background: black;
+      opacity: 0;
+      z-index: 8;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    .punto.explota {
+      animation: explotarPunto 1.1s ease-out forwards;
+    }
+
+    @keyframes explotarPunto {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      60% { transform: translate(-50%, -50%) scale(8); opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(20); opacity: 0.9; }
+    }
   </style>
 </head>
 <body>
   <main id="libro">
     <img id="paginaFondo" src="paginas/pagina01.png" alt="Página del libro" />
     <div id="capaPuntos"></div>
+    <div id="capaOscura"></div>
 
     <div id="mensaje">Toca iniciar</div>
 
@@ -117,6 +138,7 @@
     const paginaFondo = document.getElementById("paginaFondo");
     const capaPuntos = document.getElementById("capaPuntos");
     const mensaje = document.getElementById("mensaje");
+    const capaOscura = document.getElementById("capaOscura");
     const panelInicio = document.getElementById("panelInicio");
     const btnIniciar = document.getElementById("btnIniciar");
 
@@ -145,11 +167,15 @@
     const VELOCIDAD_REPOSO = 0.35;
     const TIEMPO_ENTRE_CAMBIO_PAGINA = 1200;
     let ultimoCambioPagina = 0;
+    let explosionRealizada = false;
+    let nivelOscuridad = 0;
+    let inicioToqueY = null;
 
     const paginas = [
       {
         fondo: "paginas/pagina01.png",
         mensaje: "Toca los puntos.",
+        tipo: "normal",
         puntos: [
           { color: "amarillo", x: 50, y: 52 },
         ]
@@ -157,6 +183,7 @@
       {
         fondo: "paginas/pagina02.png",
         mensaje: "Inclina el celular y los puntos caerán.",
+        tipo: "normal",
         puntos: [
           { color: "amarillo", x: 38, y: 48 },
           { color: "rojo", x: 50, y: 48 },
@@ -166,12 +193,25 @@
       {
         fondo: "paginas/pagina03.png",
         mensaje: "Agita el celular para desordenarlos.",
+        tipo: "normal",
         puntos: [
           { color: "amarillo", x: 35, y: 45 },
           { color: "amarillo", x: 50, y: 45 },
           { color: "amarillo", x: 65, y: 45 },
           { color: "rojo", x: 43, y: 58 },
           { color: "azul", x: 57, y: 58 },
+        ]
+      },
+      {
+        fondo: "paginas/pagina04.png",
+        mensaje: "Agita fuerte: los puntos explotarán. Luego desliza hacia arriba para iluminar.",
+        tipo: "explosionOscura",
+        puntos: [
+          { color: "amarillo", x: 35, y: 45 },
+          { color: "rojo", x: 48, y: 45 },
+          { color: "azul", x: 61, y: 45 },
+          { color: "amarillo", x: 43, y: 58 },
+          { color: "rojo", x: 56, y: 58 },
         ]
       }
     ];
@@ -232,6 +272,9 @@
       mensaje.textContent = pagina.mensaje;
       capaPuntos.innerHTML = "";
       objetos = [];
+      explosionRealizada = false;
+      nivelOscuridad = 0;
+      capaOscura.style.opacity = 0;
 
       pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y));
     }
@@ -416,6 +459,12 @@
 
       if (fuerza > 35 && ahora - ultimoShake > 900) {
         ultimoShake = ahora;
+
+        if (paginas[paginaActual].tipo === "explosionOscura" && !explosionRealizada) {
+          activarExplosionOscura();
+          return;
+        }
+
         mensaje.textContent = "¡Agitado!";
         objetos.forEach(p => {
           p.vx += (Math.random() - 0.5) * 24;
@@ -447,6 +496,112 @@
       cargarPagina(0);
       animar();
     }
+
+    function activarExplosionOscura() {
+      explosionRealizada = true;
+      mensaje.textContent = "¡BOOM! La página se apagó.";
+      reproducirExplosion();
+      if (navigator.vibrate) navigator.vibrate([120, 60, 180, 80, 250]);
+
+      objetos.forEach(p => {
+        p.el.classList.add("explota");
+        p.vx += (Math.random() - 0.5) * 38;
+        p.vy += (Math.random() - 0.5) * 38;
+      });
+
+      nivelOscuridad = 1;
+      capaOscura.style.opacity = 1;
+
+      setTimeout(() => {
+        capaPuntos.innerHTML = "";
+        objetos = [];
+        crearPunto("amarillo", 50, 50);
+        objetos[0].el.style.opacity = "0";
+        mensaje.textContent = "Desliza hacia arriba para iluminar la página.";
+      }, 1200);
+    }
+
+    function reproducirExplosion() {
+      if (!audioContext) return;
+
+      const t = audioContext.currentTime;
+      const duracion = 0.75;
+      const bufferSize = audioContext.sampleRate * duracion;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        const fade = 1 - i / bufferSize;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(fade, 2.5);
+      }
+
+      const ruido = audioContext.createBufferSource();
+      ruido.buffer = buffer;
+
+      const filtro = audioContext.createBiquadFilter();
+      filtro.type = "lowpass";
+      filtro.frequency.setValueAtTime(900, t);
+      filtro.frequency.exponentialRampToValueAtTime(90, t + duracion);
+
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duracion);
+
+      ruido.connect(filtro);
+      filtro.connect(gain);
+      gain.connect(audioContext.destination);
+
+      ruido.start(t);
+      ruido.stop(t + duracion);
+    }
+
+    function iluminarEscena(cantidad) {
+      if (paginas[paginaActual].tipo !== "explosionOscura") return;
+      if (!explosionRealizada) return;
+
+      nivelOscuridad = Math.max(0, nivelOscuridad - cantidad);
+      capaOscura.style.opacity = nivelOscuridad;
+
+      if (objetos[0]) {
+        objetos[0].el.style.opacity = String(1 - nivelOscuridad);
+      }
+
+      if (nivelOscuridad <= 0.05) {
+        nivelOscuridad = 0;
+        capaOscura.style.opacity = 0;
+        mensaje.textContent = "La luz volvió. Queda un puntito amarillo. Ahora sóplalo.";
+      }
+    }
+
+    function apagarEscenaPorSoplo() {
+      if (paginas[paginaActual].tipo !== "explosionOscura") return false;
+      if (!explosionRealizada) return false;
+      if (nivelOscuridad > 0.1) return false;
+
+      nivelOscuridad = 1;
+      capaOscura.style.opacity = 1;
+      mensaje.textContent = "Soplaste... y apagaste la página.";
+      if (objetos[0]) objetos[0].el.style.opacity = "0";
+      if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+      return true;
+    }
+
+    window.addEventListener("pointerdown", e => {
+      inicioToqueY = e.clientY;
+    });
+
+    window.addEventListener("pointermove", e => {
+      if (inicioToqueY === null) return;
+      const diferencia = inicioToqueY - e.clientY;
+      if (diferencia > 8) {
+        iluminarEscena(diferencia / 900);
+        inicioToqueY = e.clientY;
+      }
+    });
+
+    window.addEventListener("pointerup", () => {
+      inicioToqueY = null;
+    });
 
     async function activarMicrofono() {
       try {
@@ -481,6 +636,12 @@
       // Puedes ajustar este número: 18 más sensible, 35 menos sensible.
       if (volumen > 24 && ahora - ultimoSoplo > 450) {
         ultimoSoplo = ahora;
+
+        if (apagarEscenaPorSoplo()) {
+          requestAnimationFrame(detectarSoplo);
+          return;
+        }
+
         mensaje.textContent = "¡Soplo detectado!";
 
         objetos.forEach(p => {
@@ -492,8 +653,8 @@
         if (navigator.vibrate) navigator.vibrate(25);
       }
 
-      // Soplo fuerte: pasa a la siguiente página.
-      if (volumen > 42 && ahora - ultimoCambioPagina > TIEMPO_ENTRE_CAMBIO_PAGINA) {
+      // Soplo fuerte: pasa a la siguiente página, excepto en la escena de apagado.
+      if (paginas[paginaActual].tipo !== "explosionOscura" && volumen > 42 && ahora - ultimoCambioPagina > TIEMPO_ENTRE_CAMBIO_PAGINA) {
         mensaje.textContent = "¡Soplo fuerte! Pasando página...";
         siguientePagina();
       }
