@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Libro interactivo de puntitos</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      touch-action: none;
+    }
+
+    #libro {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: white;
+    }
+
+    #paginaFondo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      z-index: 1;
+      pointer-events: none;
+      background: white;
+    }
+
+    #capaPuntos {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: auto;
+    }
+
+    .punto {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      will-change: left, top, transform;
+      box-shadow: 0 5px 12px rgba(0,0,0,0.18);
+    }
+
+    .amarillo { background: #ffd51e; }
+    .rojo { background: #ef3d35; }
+    .azul { background: #45bde8; }
+    .blanco { background: #ffffff; border: 2px solid #ddd; }
+
+    #panelInicio {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: rgba(255,255,255,0.94);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    #panelInicio button {
+      border: none;
+      background: #111;
+      color: white;
+      font-size: 20px;
+      border-radius: 999px;
+      padding: 16px 26px;
+      cursor: pointer;
+    }
+
+    #mensaje {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(255,255,255,0.82);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      color: #222;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <main id="libro">
+    <img id="paginaFondo" src="paginas/pagina01.png" alt="Página del libro" />
+    <div id="capaPuntos"></div>
+
+    <div id="mensaje">Toca iniciar</div>
+
+    <section id="panelInicio">
+      <div>
+        <h1>Libro interactivo</h1>
+        <p>Toca para activar sonido, movimiento y sensores del celular.</p>
+        <button id="btnIniciar">Iniciar experiencia</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Los sonidos se generan con Web Audio para que no dependan de archivos mp3 externos. -->
+
+  <script>
+    const paginaFondo = document.getElementById("paginaFondo");
+    const capaPuntos = document.getElementById("capaPuntos");
+    const mensaje = document.getElementById("mensaje");
+    const panelInicio = document.getElementById("panelInicio");
+    const btnIniciar = document.getElementById("btnIniciar");
+
+    let audioContext = null;
+
+    function iniciarAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+    }
+
+    let paginaActual = 0;
+    let objetos = [];
+    let ultimoShake = 0;
+    let sensoresActivos = false;
+
+    const paginas = [
+      {
+        fondo: "paginas/pagina01.png",
+        mensaje: "Toca los puntos.",
+        puntos: [
+          { color: "amarillo", x: 50, y: 52 },
+        ]
+      },
+      {
+        fondo: "paginas/pagina02.png",
+        mensaje: "Inclina el celular y los puntos caerán.",
+        puntos: [
+          { color: "amarillo", x: 38, y: 48 },
+          { color: "rojo", x: 50, y: 48 },
+          { color: "azul", x: 62, y: 48 },
+        ]
+      },
+      {
+        fondo: "paginas/pagina03.png",
+        mensaje: "Agita el celular para desordenarlos.",
+        puntos: [
+          { color: "amarillo", x: 35, y: 45 },
+          { color: "amarillo", x: 50, y: 45 },
+          { color: "amarillo", x: 65, y: 45 },
+          { color: "rojo", x: 43, y: 58 },
+          { color: "azul", x: 57, y: 58 },
+        ]
+      }
+    ];
+
+    function reproducir(tipo = "pop") {
+      if (!audioContext) return;
+
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+
+      const ahora = audioContext.currentTime;
+
+      if (tipo === "pop") {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(520, ahora);
+        osc.frequency.exponentialRampToValueAtTime(120, ahora + 0.12);
+        gain.gain.setValueAtTime(0.25, ahora);
+        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.14);
+        osc.start(ahora);
+        osc.stop(ahora + 0.15);
+      }
+
+      if (tipo === "rebote") {
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(260, ahora);
+        osc.frequency.exponentialRampToValueAtTime(90, ahora + 0.08);
+        gain.gain.setValueAtTime(0.18, ahora);
+        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.1);
+        osc.start(ahora);
+        osc.stop(ahora + 0.11);
+      }
+
+      if (tipo === "caida") {
+        osc.type = "square";
+        osc.frequency.setValueAtTime(90, ahora);
+        gain.gain.setValueAtTime(0.12, ahora);
+        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.18);
+        osc.start(ahora);
+        osc.stop(ahora + 0.19);
+      }
+    }
+
+    function cargarPagina(indice) {
+      paginaActual = indice;
+      const pagina = paginas[paginaActual];
+      paginaFondo.src = pagina.fondo;
+      mensaje.textContent = pagina.mensaje;
+      capaPuntos.innerHTML = "";
+      objetos = [];
+
+      pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y));
+    }
+
+    function crearPunto(color, xPorcentaje, yPorcentaje) {
+      const el = document.createElement("div");
+      el.className = `punto ${color}`;
+      capaPuntos.appendChild(el);
+
+      const objeto = {
+        el,
+        x: (window.innerWidth * xPorcentaje) / 100,
+        y: (window.innerHeight * yPorcentaje) / 100,
+        vx: 0,
+        vy: 0,
+        radio: 32,
+        arrastrando: false,
+        ultimoX: 0,
+        ultimoY: 0,
+        ultimoTiempo: 0
+      };
+
+      el.addEventListener("pointerdown", (e) => {
+        objeto.arrastrando = true;
+        objeto.ultimoX = e.clientX;
+        objeto.ultimoY = e.clientY;
+        objeto.ultimoTiempo = Date.now();
+        objeto.vx = 0;
+        objeto.vy = 0;
+        el.setPointerCapture(e.pointerId);
+        reproducir("pop");
+        if (navigator.vibrate) navigator.vibrate(35);
+      });
+
+      el.addEventListener("pointermove", (e) => {
+        if (!objeto.arrastrando) return;
+
+        const ahora = Date.now();
+        const dt = Math.max(16, ahora - objeto.ultimoTiempo);
+
+        objeto.vx = (e.clientX - objeto.ultimoX) / dt * 16;
+        objeto.vy = (e.clientY - objeto.ultimoY) / dt * 16;
+
+        objeto.x = e.clientX;
+        objeto.y = e.clientY;
+
+        objeto.ultimoX = e.clientX;
+        objeto.ultimoY = e.clientY;
+        objeto.ultimoTiempo = ahora;
+      });
+
+      el.addEventListener("pointerup", (e) => {
+        objeto.arrastrando = false;
+        el.releasePointerCapture(e.pointerId);
+        reproducir("rebote");
+      });
+
+      el.addEventListener("pointercancel", () => {
+        objeto.arrastrando = false;
+      });
+
+      objetos.push(objeto);
+    }
+
+    function animar() {
+      objetos.forEach(p => {
+        if (p.arrastrando) {
+          p.el.style.left = `${p.x}px`;
+          p.el.style.top = `${p.y}px`;
+          return;
+        }
+
+        p.vy += 0.08;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        p.vx *= 0.985;
+        p.vy *= 0.985;
+
+        const minX = p.radio;
+        const maxX = window.innerWidth - p.radio;
+        const minY = p.radio;
+        const maxY = window.innerHeight - p.radio;
+
+        if (p.x < minX) {
+          p.x = minX;
+          p.vx *= -0.75;
+          reproducir("rebote");
+        }
+
+        if (p.x > maxX) {
+          p.x = maxX;
+          p.vx *= -0.75;
+          reproducir("rebote");
+        }
+
+        if (p.y < minY) {
+          p.y = minY;
+          p.vy *= -0.75;
+          reproducir("rebote");
+        }
+
+        if (p.y > maxY) {
+          p.y = maxY;
+          p.vy *= -0.65;
+          reproducir("caida");
+        }
+
+        p.el.style.left = `${p.x}px`;
+        p.el.style.top = `${p.y}px`;
+      });
+
+      requestAnimationFrame(animar);
+    }
+
+    function siguientePagina() {
+      const nuevaPagina = (paginaActual + 1) % paginas.length;
+      cargarPagina(nuevaPagina);
+      reproducir("pop");
+    }
+
+    capaPuntos.addEventListener("dblclick", siguientePagina);
+
+    window.addEventListener("deviceorientation", e => {
+      if (!sensoresActivos) return;
+      const gamma = e.gamma || 0;
+      const beta = e.beta || 0;
+
+      objetos.forEach(p => {
+        p.vx += gamma * 0.012;
+        p.vy += beta * 0.006;
+      });
+    });
+
+    window.addEventListener("devicemotion", e => {
+      if (!sensoresActivos) return;
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const fuerza = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+      const ahora = Date.now();
+
+      if (fuerza > 35 && ahora - ultimoShake > 900) {
+        ultimoShake = ahora;
+        mensaje.textContent = "¡Agitado!";
+        objetos.forEach(p => {
+          p.vx += (Math.random() - 0.5) * 24;
+          p.vy += (Math.random() - 0.5) * 24;
+        });
+        reproducir("pop");
+        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      }
+    });
+
+    async function pedirPermisos() {
+      try {
+        if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+          await DeviceMotionEvent.requestPermission();
+        }
+        if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+          await DeviceOrientationEvent.requestPermission();
+        }
+      } catch (error) {
+        console.log("Permisos de sensores no concedidos", error);
+      }
+
+      iniciarAudio();
+      reproducir("pop");
+
+      sensoresActivos = true;
+      panelInicio.style.display = "none";
+      cargarPagina(0);
+      animar();
+    }
+
+    btnIniciar.addEventListener("click", pedirPermisos);
+
+    window.addEventListener("resize", () => cargarPagina(paginaActual));
+  </script>
+</body>
+</html>
