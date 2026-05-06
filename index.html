@@ -136,6 +136,10 @@
     let ultimoShake = 0;
     let sensoresActivos = false;
 
+    // Evita que los sonidos se repitan cuando el punto ya está casi quieto.
+    const VELOCIDAD_MINIMA_SONIDO = 2.2;
+    const VELOCIDAD_REPOSO = 0.18;
+
     const paginas = [
       {
         fondo: "paginas/pagina01.png",
@@ -230,6 +234,7 @@
         vx: 0,
         vy: 0,
         radio: 32,
+        ultimoSonido: 0,
         arrastrando: false,
         ultimoX: 0,
         ultimoY: 0,
@@ -299,34 +304,61 @@
         const maxY = window.innerHeight - p.radio;
 
         if (p.x < minX) {
+          const impacto = Math.abs(p.vx);
           p.x = minX;
-          p.vx *= -0.75;
-          reproducir("rebote");
+          p.vx *= -0.55;
+          sonarImpacto(p, impacto, "rebote");
         }
 
         if (p.x > maxX) {
+          const impacto = Math.abs(p.vx);
           p.x = maxX;
-          p.vx *= -0.75;
-          reproducir("rebote");
+          p.vx *= -0.55;
+          sonarImpacto(p, impacto, "rebote");
         }
 
         if (p.y < minY) {
+          const impacto = Math.abs(p.vy);
           p.y = minY;
-          p.vy *= -0.75;
-          reproducir("rebote");
+          p.vy *= -0.55;
+          sonarImpacto(p, impacto, "rebote");
         }
 
         if (p.y > maxY) {
+          const impacto = Math.abs(p.vy);
           p.y = maxY;
-          p.vy *= -0.65;
-          reproducir("caida");
+
+          if (impacto < VELOCIDAD_MINIMA_SONIDO) {
+            // Cuando ya casi no se mueve, lo dejamos dormido sobre el piso.
+            p.vy = 0;
+            p.vx *= 0.82;
+          } else {
+            p.vy *= -0.45;
+            sonarImpacto(p, impacto, "caida");
+          }
         }
+
+        if (Math.abs(p.vx) < VELOCIDAD_REPOSO) p.vx = 0;
+        if (Math.abs(p.vy) < VELOCIDAD_REPOSO && p.y >= maxY - 1) p.vy = 0;
 
         p.el.style.left = `${p.x}px`;
         p.el.style.top = `${p.y}px`;
       });
 
       requestAnimationFrame(animar);
+    }
+
+    function sonarImpacto(punto, impacto, tipo) {
+      const ahora = Date.now();
+
+      // Solo suena si el golpe fue suficientemente fuerte.
+      if (impacto < VELOCIDAD_MINIMA_SONIDO) return;
+
+      // Cada punto tiene su propio descanso sonoro.
+      if (ahora - punto.ultimoSonido < 220) return;
+
+      punto.ultimoSonido = ahora;
+      reproducir(tipo);
     }
 
     function siguientePagina() {
