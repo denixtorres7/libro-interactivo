@@ -499,19 +499,49 @@
 
     function activarExplosionOscura() {
       explosionRealizada = true;
-      mensaje.textContent = "¡BOOM! La página se apagó.";
+      mensaje.textContent = "¡BOOM! Los puntos explotaron.";
       reproducirExplosion();
-      if (navigator.vibrate) navigator.vibrate([120, 60, 180, 80, 250]);
 
+      if (navigator.vibrate) {
+        navigator.vibrate([120, 60, 180, 80, 250]);
+      }
+
+      // Los puntos originales explotan.
       objetos.forEach(p => {
         p.el.classList.add("explota");
         p.vx += (Math.random() - 0.5) * 38;
         p.vy += (Math.random() - 0.5) * 38;
       });
 
-      nivelOscuridad = 1;
-      capaOscura.style.opacity = 1;
+      // Crear MUCHOS puntos extra para llenar la pantalla.
+      const colores = ["amarillo", "rojo", "azul"];
 
+      for (let i = 0; i < 60; i++) {
+        const color = colores[Math.floor(Math.random() * colores.length)];
+        crearPunto(
+          color,
+          Math.random() * 100,
+          Math.random() * 100
+        );
+
+        const nuevo = objetos[objetos.length - 1];
+
+        nuevo.el.style.width = "42px";
+        nuevo.el.style.height = "42px";
+        nuevo.el.classList.add("explota");
+
+        nuevo.vx = (Math.random() - 0.5) * 45;
+        nuevo.vy = (Math.random() - 0.5) * 45;
+      }
+
+      // Primero vemos la explosión.
+      setTimeout(() => {
+        capaOscura.style.transition = "opacity 2.2s ease";
+        nivelOscuridad = 1;
+        capaOscura.style.opacity = 1;
+      }, 700);
+
+      // Luego queda todo negro.
       setTimeout(() => {
         capaPuntos.innerHTML = "";
         objetos = [];
