@@ -135,10 +135,16 @@
     let objetos = [];
     let ultimoShake = 0;
     let sensoresActivos = false;
+    let microfonoActivo = false;
+    let analizadorAudio = null;
+    let datosAudio = null;
+    let ultimoSoplo = 0;
 
     // Evita que los sonidos se repitan cuando el punto ya está casi quieto.
-    const VELOCIDAD_MINIMA_SONIDO = 2.2;
-    const VELOCIDAD_REPOSO = 0.18;
+    const VELOCIDAD_MINIMA_SONIDO = 4.5;
+    const VELOCIDAD_REPOSO = 0.35;
+    const TIEMPO_ENTRE_CAMBIO_PAGINA = 1200;
+    let ultimoCambioPagina = 0;
 
     const paginas = [
       {
@@ -173,42 +179,50 @@
     function reproducir(tipo = "pop") {
       if (!audioContext) return;
 
-      const osc = audioContext.createOscillator();
+      const t = audioContext.currentTime;
+      const duracion = tipo === "caida" ? 0.08 : 0.05;
+
+      // Sonido tipo golpe suave usando ruido, no tono musical.
+      const bufferSize = audioContext.sampleRate * duracion;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        const fade = 1 - i / bufferSize;
+        data[i] = (Math.random() * 2 - 1) * fade * fade;
+      }
+
+      const noise = audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      const filtro = audioContext.createBiquadFilter();
+      filtro.type = "lowpass";
+
       const gain = audioContext.createGain();
 
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
-
-      const ahora = audioContext.currentTime;
-
       if (tipo === "pop") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(520, ahora);
-        osc.frequency.exponentialRampToValueAtTime(120, ahora + 0.12);
-        gain.gain.setValueAtTime(0.25, ahora);
-        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.14);
-        osc.start(ahora);
-        osc.stop(ahora + 0.15);
+        filtro.frequency.setValueAtTime(900, t);
+        gain.gain.setValueAtTime(0.08, t);
       }
 
       if (tipo === "rebote") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(260, ahora);
-        osc.frequency.exponentialRampToValueAtTime(90, ahora + 0.08);
-        gain.gain.setValueAtTime(0.18, ahora);
-        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.1);
-        osc.start(ahora);
-        osc.stop(ahora + 0.11);
+        filtro.frequency.setValueAtTime(550, t);
+        gain.gain.setValueAtTime(0.055, t);
       }
 
       if (tipo === "caida") {
-        osc.type = "square";
-        osc.frequency.setValueAtTime(90, ahora);
-        gain.gain.setValueAtTime(0.12, ahora);
-        gain.gain.exponentialRampToValueAtTime(0.001, ahora + 0.18);
-        osc.start(ahora);
-        osc.stop(ahora + 0.19);
+        filtro.frequency.setValueAtTime(260, t);
+        gain.gain.setValueAtTime(0.06, t);
       }
+
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duracion);
+
+      noise.connect(filtro);
+      filtro.connect(gain);
+      gain.connect(audioContext.destination);
+
+      noise.start(t);
+      noise.stop(t + duracion);
     }
 
     function cargarPagina(indice) {
@@ -295,8 +309,8 @@
         p.x += p.vx;
         p.y += p.vy;
 
-        p.vx *= 0.985;
-        p.vy *= 0.985;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
 
         const minX = p.radio;
         const maxX = window.innerWidth - p.radio;
@@ -338,8 +352,16 @@
           }
         }
 
+        // Si queda casi quieto, se apaga del todo para evitar microrebotes sonoros.
         if (Math.abs(p.vx) < VELOCIDAD_REPOSO) p.vx = 0;
-        if (Math.abs(p.vy) < VELOCIDAD_REPOSO && p.y >= maxY - 1) p.vy = 0;
+        if (Math.abs(p.vy) < VELOCIDAD_REPOSO) p.vy = 0;
+
+        // Si está en el piso y ya no tiene fuerza, queda dormido.
+        if (p.y >= maxY - 1 && Math.abs(p.vx) < VELOCIDAD_REPOSO * 2 && Math.abs(p.vy) < VELOCIDAD_REPOSO * 2) {
+          p.y = maxY;
+          p.vx = 0;
+          p.vy = 0;
+        }
 
         p.el.style.left = `${p.x}px`;
         p.el.style.top = `${p.y}px`;
@@ -362,6 +384,10 @@
     }
 
     function siguientePagina() {
+      const ahora = Date.now();
+      if (ahora - ultimoCambioPagina < TIEMPO_ENTRE_CAMBIO_PAGINA) return;
+
+      ultimoCambioPagina = ahora;
       const nuevaPagina = (paginaActual + 1) % paginas.length;
       cargarPagina(nuevaPagina);
       reproducir("pop");
@@ -414,11 +440,65 @@
 
       iniciarAudio();
       reproducir("pop");
+      await activarMicrofono();
 
       sensoresActivos = true;
       panelInicio.style.display = "none";
       cargarPagina(0);
       animar();
+    }
+
+    async function activarMicrofono() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const fuente = audioContext.createMediaStreamSource(stream);
+        analizadorAudio = audioContext.createAnalyser();
+        analizadorAudio.fftSize = 1024;
+        datosAudio = new Uint8Array(analizadorAudio.frequencyBinCount);
+        fuente.connect(analizadorAudio);
+        microfonoActivo = true;
+        detectarSoplo();
+      } catch (error) {
+        mensaje.textContent = "Micrófono no activado. Revisa permisos.";
+        console.log("No se pudo activar el micrófono", error);
+      }
+    }
+
+    function detectarSoplo() {
+      if (!microfonoActivo || !analizadorAudio) return;
+
+      analizadorAudio.getByteFrequencyData(datosAudio);
+
+      let volumen = 0;
+      for (let i = 0; i < datosAudio.length; i++) {
+        volumen += datosAudio[i];
+      }
+      volumen = volumen / datosAudio.length;
+
+      const ahora = Date.now();
+
+      // Soplo: sonido sostenido de intensidad media/alta.
+      // Puedes ajustar este número: 18 más sensible, 35 menos sensible.
+      if (volumen > 24 && ahora - ultimoSoplo > 450) {
+        ultimoSoplo = ahora;
+        mensaje.textContent = "¡Soplo detectado!";
+
+        objetos.forEach(p => {
+          p.vx += (Math.random() - 0.5) * 4;
+          p.vy -= 5;
+        });
+
+        // No reproducimos sonido en cada soplo para evitar ruido molesto.
+        if (navigator.vibrate) navigator.vibrate(25);
+      }
+
+      // Soplo fuerte: pasa a la siguiente página.
+      if (volumen > 42 && ahora - ultimoCambioPagina > TIEMPO_ENTRE_CAMBIO_PAGINA) {
+        mensaje.textContent = "¡Soplo fuerte! Pasando página...";
+        siguientePagina();
+      }
+
+      requestAnimationFrame(detectarSoplo);
     }
 
     btnIniciar.addEventListener("click", pedirPermisos);
