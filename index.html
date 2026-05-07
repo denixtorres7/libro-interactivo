@@ -1,799 +1,988 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>Libro Sensorial</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Libro sensorial interactivo</title>
+  <style>
+    * { box-sizing: border-box; }
 
-<style>
-* { box-sizing: border-box; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: white;
+      font-family: Arial, Helvetica, sans-serif;
+      touch-action: none;
+      user-select: none;
+    }
 
-body {
-  margin: 0;
-  overflow: hidden;
-  background: white;
-  touch-action: none;
-  user-select: none;
-  font-family: Arial, Helvetica, sans-serif;
-}
+    #libro {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: white;
+    }
 
-#libro {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: white;
-}
+    #paginaFondo {
+      display: none;
+    }
 
-#fondo {
-  position: absolute;
-  inset: 0;
-  background: white;
-  z-index: 0;
-  transition: background 0.6s ease, filter 0.5s ease;
-}
+    #fondoColor {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: white;
+      transition: background 0.6s ease, filter 0.5s ease;
+    }
 
-#camara {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  z-index: 0;
-  transform: scaleX(-1);
-  transition: opacity 0.4s ease;
-}
+    #videoCamara {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      z-index: 0;
+      transform: scaleX(-1);
+      transition: opacity 0.6s ease;
+    }
 
-#capaPuntos {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-}
+    #capaPuntos {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: auto;
+    }
 
-#oscuro {
-  position: absolute;
-  inset: 0;
-  background: black;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.6s ease;
-  z-index: 4;
-}
+    #capaOscura {
+      position: absolute;
+      inset: 0;
+      background: black;
+      opacity: 0;
+      z-index: 8;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
 
-#mensaje {
-  position: absolute;
-  top: max(18px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  width: 92vw;
-  z-index: 30;
-  text-align: center;
-  font-size: clamp(18px, 4.6vw, 32px);
-  line-height: 1.15;
-  font-weight: 700;
-  color: black;
-  text-shadow: 0 1px 0 white, 0 0 10px white;
-  pointer-events: none;
-}
+    #capaLuz {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      left: 50%;
+      top: 38%;
+      transform: translate(-50%, -50%) scale(0);
+      z-index: 9;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle,
+        rgba(255, 240, 120, 1) 0%,
+        rgba(255, 213, 30, 0.95) 18%,
+        rgba(255, 255, 255, 0.85) 42%,
+        rgba(255, 255, 255, 0.35) 68%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      filter: blur(2px);
+      mix-blend-mode: screen;
+      transition: opacity 0.25s ease, transform 0.18s ease;
+    }
 
-.punto {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  will-change: left, top, transform, background, box-shadow, opacity;
-}
+    .punto {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      will-change: left, top, transform, background, opacity;
+      box-shadow: 0 5px 12px rgba(0,0,0,0.18);
+      transition: background 0.4s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+    }
 
-.amarillo { background: #ffd000; }
-.rojo { background: #ff4040; }
-.azul { background: #40bfff; }
+    .amarillo { background: #ffd51e; }
+    .rojo { background: #ef3d35; }
+    .azul { background: #45bde8; }
+    .blanco { background: #ffffff; border: 2px solid #ddd; }
 
-.palpita { animation: palpita 0.55s infinite alternate ease-in-out; }
+    .punto.explota { animation: explotarPunto 1.1s ease-out forwards; }
 
-@keyframes palpita {
-  from { transform: translate(-50%, -50%) scale(1); }
-  to { transform: translate(-50%, -50%) scale(1.28); }
-}
+    @keyframes explotarPunto {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      60% { transform: translate(-50%, -50%) scale(8); opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(20); opacity: 0.9; }
+    }
 
-.explota { animation: explota 1s forwards ease-out; }
+    .punto.palpita { animation: palpitar 0.8s infinite alternate ease-in-out; }
 
-@keyframes explota {
-  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  to { transform: translate(-50%, -50%) scale(18); opacity: 0; }
-}
+    @keyframes palpitar {
+      from { transform: translate(-50%, -50%) scale(1); }
+      to { transform: translate(-50%, -50%) scale(1.25); }
+    }
 
-#inicio {
-  position: absolute;
-  inset: 0;
-  background: white;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 18px;
-  text-align: center;
-  padding: 24px;
-}
+    #mensaje {
+      position: absolute;
+      left: 50%;
+      top: max(18px, env(safe-area-inset-top));
+      bottom: auto;
+      transform: translateX(-50%);
+      z-index: 18;
+      background: rgba(255,255,255,0.92);
+      padding: 10px 16px;
+      border-radius: 18px;
+      font-size: clamp(15px, 3.8vw, 20px);
+      line-height: 1.25;
+      color: #111;
+      pointer-events: none;
+      text-align: center;
+      width: min(92vw, 680px);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
+    }
 
-button {
-  padding: 18px 28px;
-  border: none;
-  border-radius: 999px;
-  background: black;
-  color: white;
-  font-size: 20px;
-}
-</style>
+    #panelInicio {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: rgba(255,255,255,0.94);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    #panelInicio button {
+      border: none;
+      background: #111;
+      color: white;
+      font-size: 20px;
+      border-radius: 999px;
+      padding: 16px 26px;
+      cursor: pointer;
+    }
+  </style>
 </head>
-
 <body>
-<div id="libro">
-  <div id="fondo"></div>
-  <video id="camara" autoplay playsinline muted></video>
-  <div id="oscuro"></div>
-  <div id="capaPuntos"></div>
-  <div id="mensaje"></div>
+  <main id="libro">
+    <div id="fondoColor"></div>
+    <video id="videoCamara" autoplay playsinline muted></video>
+    <img id="paginaFondo" src="" alt="" />
+    <div id="capaPuntos"></div>
+    <div id="capaOscura"></div>
+    <div id="capaLuz"></div>
+    <div id="mensaje">Toca iniciar</div>
 
-  <div id="inicio">
-    <h1>Libro Sensorial</h1>
-    <button id="btnInicio">Iniciar</button>
-  </div>
-</div>
+    <section id="panelInicio">
+      <div>
+        <h1>Libro sensorial</h1>
+        <p>Toca para activar sonido, movimiento, micrófono y sensores.</p>
+        <button id="btnIniciar">Iniciar experiencia</button>
+      </div>
+    </section>
+  </main>
 
-<script>
-const fondo = document.getElementById("fondo");
-const capaPuntos = document.getElementById("capaPuntos");
-const oscuro = document.getElementById("oscuro");
-const mensaje = document.getElementById("mensaje");
-const inicio = document.getElementById("inicio");
-const btnInicio = document.getElementById("btnInicio");
-const camara = document.getElementById("camara");
+  <script>
+    const paginaFondo = document.getElementById("paginaFondo");
+    const fondoColor = document.getElementById("fondoColor");
+    const videoCamara = document.getElementById("videoCamara");
+    const capaPuntos = document.getElementById("capaPuntos");
+    const capaOscura = document.getElementById("capaOscura");
+    const capaLuz = document.getElementById("capaLuz");
+    const mensaje = document.getElementById("mensaje");
+    const panelInicio = document.getElementById("panelInicio");
+    const btnIniciar = document.getElementById("btnIniciar");
 
-let objetos = [];
-let paginaActual = 0;
-let audioContext = null;
-let orientacion = { alpha: 0, beta: 0, gamma: 0 };
-let puntero = { x: innerWidth/2, y: innerHeight/2, activo: false };
-let ultimoShake = 0;
-let ultimoCambioPagina = 0;
-let ultimoSoplo = 0;
-let analizadorAudio = null;
-let datosAudio = null;
-let streamCamara = null;
-let camaraActiva = false;
-let canvasCamara = document.createElement("canvas");
-let ctxCamara = canvasCamara.getContext("2d", { willReadFrequently: true });
-let frameAnterior = null;
-let movimientoCamara = { x: 0, y: 0, fuerza: 0 };
-let luzAmbiente = 1;
-let sensorLuzDisponible = false;
-let intervaloOscuridadManual = null;
-let explosionRealizada = false;
-let nivelOscuridad = 0;
+    let paginaActual = 0;
+    let objetos = [];
+    let audioContext = null;
+    let sensoresActivos = false;
+    let ultimoShake = 0;
+    let ultimoCambioPagina = 0;
+    let ultimoSoplo = 0;
+    let analizadorAudio = null;
+    let datosAudio = null;
+    let microfonoActivo = false;
+    let puntero = { x: 0, y: 0, activo: false };
+    let explosionRealizada = false;
+    let nivelOscuridad = 0;
+    let nivelLuzPunto = 0;
+    let inicioToqueY = null;
+    let orientacion = { alpha: 0, beta: 0, gamma: 0 };
+    let luzAmbiente = 1;
+    let sensorLuzDisponible = false;
+    let camaraActiva = false;
+    let camaraLista = false;
+    let movimientoCamara = { x: 0, y: 0 };
 
-const notas = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25];
+    const VELOCIDAD_MINIMA_SONIDO = 4.5;
+    const VELOCIDAD_REPOSO = 0.35;
+    const TIEMPO_ENTRE_CAMBIO_PAGINA = 1200;
 
-function crearPuntosIniciales(cantidad) {
-  const colores = ["amarillo", "rojo", "azul"];
-  const lista = [];
-  for (let i = 0; i < cantidad; i++) {
-    lista.push({
-      color: colores[i % 3],
-      x: 22 + Math.random() * 56,
-      y: 25 + Math.random() * 54,
-      nota: notas[i % notas.length]
-    });
-  }
-  return lista;
-}
+    const paginas = [
+      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55 }] },
+      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55 }, { color: "rojo", x: 50, y: 55 }, { color: "azul", x: 68, y: 55 }] },
+      { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 72, y: 45 }] },
+      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
+      { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
+      { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
+      { tipo: "miedo", mensaje: "Acerca el dedo.", puntos: crearPuntosIniciales(14) },
+      { tipo: "curiosidad", mensaje: "Mueve el dedo despacio por la pantalla.", puntos: crearPuntosIniciales(12) },
+      { tipo: "salto", mensaje: "Mantén presionado un punto. Ahora, ¡Suéltalo!", puntos: crearPuntosIniciales(8) },
+      { tipo: "cadena", mensaje: "Haz saltar un punto.", puntos: crearPuntosIniciales(10) },
+      { tipo: "explotaPresion", mensaje: "Mantén presionada la pantalla un tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
+      { tipo: "ruido", mensaje: "Aplaude o haz ruido.", puntos: crearPuntosIniciales(15) },
+      { tipo: "respiracion", mensaje: "Sopla suave. Ahora, ¡Sopla fuerte!", puntos: crearPuntosIniciales(18) },
+      { tipo: "galaxia", mensaje: "Agita el celular y verás las estrellas.", puntos: crearPuntosIniciales(28) },
+      { tipo: "camara", mensaje: "Toca la pantalla para activar cámara. Ahora, ¡Muévete!", puntos: crearPuntosIniciales(18) },
+      { tipo: "ejercicio", mensaje: "¡Salta o camina con el celular!", puntos: crearPuntosIniciales(20) }
+    ];
 
-const paginas = [
-  { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55, nota: 392 }] },
-  { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55, nota: 330 }, { color: "rojo", x: 50, y: 55, nota: 392 }, { color: "azul", x: 68, y: 55, nota: 494 }] },
-  { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45, nota: 330 }, { color: "rojo", x: 50, y: 45, nota: 392 }, { color: "azul", x: 72, y: 45, nota: 494 }] },
-  { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
-  { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
-  { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, mantén presionada la pantalla para oscurecer.", puntos: crearPuntosIniciales(16) },
-  { tipo: "miedo", mensaje: "Acerca el dedo.", puntos: crearPuntosIniciales(14) },
-  { tipo: "curiosidad", mensaje: "Mueve el dedo despacio por la pantalla.", puntos: crearPuntosIniciales(12) },
-  { tipo: "salto", mensaje: "Mantén presionado un punto. Ahora, ¡Suéltalo!", puntos: crearPuntosIniciales(8) },
-  { tipo: "cadena", mensaje: "Haz saltar un punto.", puntos: crearPuntosIniciales(10) },
-  { tipo: "explotaPresion", mensaje: "Mantén presionada la pantalla un tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
-  { tipo: "ruido", mensaje: "Aplaude o haz ruido.", puntos: crearPuntosIniciales(15) },
-  { tipo: "respiracion", mensaje: "Sopla suave. Ahora, ¡Sopla fuerte!", puntos: crearPuntosIniciales(18) },
-  { tipo: "galaxia", mensaje: "Agita el celular y verás las estrellas.", puntos: crearPuntosIniciales(28) },
-  { tipo: "camara", mensaje: "Toca la pantalla para activar cámara. Ahora, ¡Muévete!", puntos: crearPuntosIniciales(18) }
-];
-
-function iniciarAudio() {
-  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioContext.state === "suspended") audioContext.resume();
-}
-
-function sonido(tipo = "pop", frecuencia = 420) {
-  if (!audioContext) return;
-  const t = audioContext.currentTime;
-  const osc = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  osc.connect(gain);
-  gain.connect(audioContext.destination);
-  osc.type = "sine";
-
-  if (tipo === "nota") {
-    osc.frequency.value = frecuencia;
-    gain.gain.setValueAtTime(0.22, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
-    osc.start(t);
-    osc.stop(t + 0.28);
-    return;
-  }
-
-  if (tipo === "pop") {
-    osc.frequency.setValueAtTime(520, t);
-    osc.frequency.exponentialRampToValueAtTime(240, t + 0.08);
-    gain.gain.setValueAtTime(0.14, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-    osc.start(t);
-    osc.stop(t + 0.1);
-    return;
-  }
-
-  if (tipo === "rebote") {
-    osc.frequency.setValueAtTime(180, t);
-    osc.frequency.exponentialRampToValueAtTime(90, t + 0.06);
-    gain.gain.setValueAtTime(0.08, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-    osc.start(t);
-    osc.stop(t + 0.08);
-    return;
-  }
-
-  if (tipo === "explosion") {
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(120, t);
-    osc.frequency.exponentialRampToValueAtTime(38, t + 0.25);
-    gain.gain.setValueAtTime(0.28, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-    osc.start(t);
-    osc.stop(t + 0.3);
-  }
-}
-
-function paletaPorHora() {
-  const h = new Date().getHours();
-  if (h >= 6 && h < 12) return ["#ffd166", "#ffb703", "#fb8500"];
-  if (h >= 12 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];
-  if (h >= 17 && h < 19) return ["#f15bb5", "#fee440", "#f9844a"];
-  return ["#00bbf9", "#4361ee", "#7209b7", "#3a0ca3", "#023e8a"];
-}
-
-function cargarPagina(i) {
-  apagarCamara();
-  paginaActual = i;
-  const pagina = paginas[paginaActual];
-  mensaje.innerText = pagina.mensaje;
-  mensaje.style.color = "black";
-  mensaje.style.textShadow = "0 1px 0 white, 0 0 10px white";
-  capaPuntos.innerHTML = "";
-  objetos = [];
-  oscuro.style.opacity = 0;
-  oscuro.style.zIndex = 4;
-  explosionRealizada = false;
-  nivelOscuridad = 0;
-  fondo.style.filter = "none";
-  fondo.style.background = (["brujula", "luz", "galaxia", "camara"].includes(pagina.tipo)) ? "#07111f" : "white";
-
-  pagina.puntos.forEach(p => crearPunto(p));
-  aplicarPaletaEspecial();
-}
-
-function crearPunto(data) {
-  const el = document.createElement("div");
-  el.className = `punto ${data.color}`;
-  capaPuntos.appendChild(el);
-
-  const obj = {
-    el,
-    x: innerWidth * data.x / 100,
-    y: innerHeight * data.y / 100,
-    vx: 0,
-    vy: 0,
-    color: data.color,
-    nota: data.nota || notas[objetos.length % notas.length],
-    radio: 30,
-    presionando: false,
-    arrastrando: false,
-    inicio: 0,
-    ultimoSonido: 0,
-    cargandoLuz: false,
-    intervaloLuz: null
-  };
-
-  el.addEventListener("pointerdown", e => puntoDown(e, obj));
-  el.addEventListener("pointermove", e => puntoMove(e, obj));
-  el.addEventListener("pointerup", e => puntoUp(e, obj));
-  el.addEventListener("pointercancel", () => cancelarPunto(obj));
-  objetos.push(obj);
-}
-
-function puntoDown(e, obj) {
-  const tipo = paginas[paginaActual].tipo;
-  obj.inicio = Date.now();
-
-  if (tipo === "explosionOscura" && explosionRealizada && nivelOscuridad > 0.05) {
-    obj.cargandoLuz = true;
-    obj.el.setPointerCapture(e.pointerId);
-    mensaje.innerText = "Sigue presionando...";
-    mensaje.style.color = "white";
-    mensaje.style.textShadow = "0 0 8px black";
-    obj.intervaloLuz = setInterval(() => iluminarEscena(0.035), 80);
-    return;
-  }
-
-  if (["salto", "cadena", "explotaPresion"].includes(tipo)) {
-    obj.presionando = true;
-    obj.el.classList.add("palpita");
-    obj.el.setPointerCapture(e.pointerId);
-    return;
-  }
-
-  obj.arrastrando = true;
-  obj.presionando = true;
-  obj.el.setPointerCapture(e.pointerId);
-  obj.x = e.clientX;
-  obj.y = e.clientY;
-  sonido("nota", obj.nota);
-}
-
-function puntoMove(e, obj) {
-  if (!obj.arrastrando) return;
-  obj.vx = (e.clientX - obj.x) * 0.5;
-  obj.vy = (e.clientY - obj.y) * 0.5;
-  obj.x = e.clientX;
-  obj.y = e.clientY;
-}
-
-function puntoUp(e, obj) {
-  const tipo = paginas[paginaActual].tipo;
-  const tiempo = Date.now() - obj.inicio;
-
-  if (obj.cargandoLuz) {
-    clearInterval(obj.intervaloLuz);
-    obj.cargandoLuz = false;
-    try { obj.el.releasePointerCapture(e.pointerId); } catch {}
-    return;
-  }
-
-  obj.el.classList.remove("palpita");
-  obj.presionando = false;
-  obj.arrastrando = false;
-  try { obj.el.releasePointerCapture(e.pointerId); } catch {}
-
-  if (tipo === "salto") {
-    obj.vy -= Math.min(26, 8 + tiempo / 80);
-    sonido("nota", obj.nota);
-    return;
-  }
-
-  if (tipo === "cadena") {
-    objetos.forEach((o, i) => {
-      setTimeout(() => {
-        o.vy -= 14 + Math.random() * 4;
-        sonido("nota", o.nota);
-      }, i * 120);
-    });
-    return;
-  }
-
-  if (tipo === "explotaPresion" && tiempo > 1400) {
-    obj.el.classList.add("explota");
-    sonido("explosion");
-    return;
-  }
-
-  sonido("rebote");
-}
-
-function cancelarPunto(obj) {
-  obj.presionando = false;
-  obj.arrastrando = false;
-  obj.cargandoLuz = false;
-  obj.el.classList.remove("palpita");
-  clearInterval(obj.intervaloLuz);
-}
-
-function aplicarPaletaEspecial() {
-  const tipo = paginas[paginaActual].tipo;
-  const paleta = paletaPorHora();
-  if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) {
-    objetos.forEach((p, i) => {
-      p.el.style.background = paleta[i % paleta.length];
-      p.el.style.boxShadow = `0 0 18px ${paleta[i % paleta.length]}88`;
-    });
-  }
-}
-
-function animar() {
-  const tipo = paginas[paginaActual].tipo;
-  comportamientoPagina(tipo);
-
-  objetos.forEach(p => {
-    const sinGravedad = ["brujula", "luz", "camara", "galaxia", "miedo", "curiosidad"].includes(tipo);
-
-    if (!p.presionando && !p.arrastrando && !sinGravedad) p.vy += 0.08;
-
-    if (!p.arrastrando && !p.cargandoLuz) {
-      p.x += p.vx;
-      p.y += p.vy;
+    function crearPuntosIniciales(cantidad) {
+      const colores = ["amarillo", "rojo", "azul"];
+      const lista = [];
+      for (let i = 0; i < cantidad; i++) {
+        lista.push({
+          color: colores[i % colores.length],
+          x: 20 + Math.random() * 60,
+          y: 25 + Math.random() * 50
+        });
+      }
+      return lista;
     }
 
-    p.vx *= 0.94;
-    p.vy *= 0.94;
-
-    const minX = p.radio, maxX = innerWidth - p.radio;
-    const minY = p.radio, maxY = innerHeight - p.radio;
-
-    if (p.x < minX) { p.x = minX; rebotar(p, "x"); }
-    if (p.x > maxX) { p.x = maxX; rebotar(p, "x"); }
-    if (p.y < minY) { p.y = minY; rebotar(p, "y"); }
-    if (p.y > maxY) { p.y = maxY; rebotar(p, "y"); }
-
-    if (Math.abs(p.vx) < 0.08) p.vx = 0;
-    if (Math.abs(p.vy) < 0.08) p.vy = 0;
-
-    p.el.style.left = p.x + "px";
-    p.el.style.top = p.y + "px";
-  });
-
-  requestAnimationFrame(animar);
-}
-
-function rebotar(p, eje) {
-  const velocidad = eje === "x" ? Math.abs(p.vx) : Math.abs(p.vy);
-  if (eje === "x") p.vx *= -0.55;
-  if (eje === "y") p.vy *= -0.55;
-  const ahora = Date.now();
-  if (velocidad > 4 && ahora - p.ultimoSonido > 250) {
-    p.ultimoSonido = ahora;
-    sonido("rebote");
-  }
-}
-
-function comportamientoPagina(tipo) {
-  if (tipo === "brujula") comportamientoBrujula();
-  if (tipo === "luz") comportamientoLuz();
-  if (tipo === "miedo") comportamientoMiedo();
-  if (tipo === "curiosidad") comportamientoCuriosidad();
-  if (tipo === "galaxia") comportamientoGalaxia();
-  if (tipo === "camara") comportamientoCamara();
-}
-
-function comportamientoBrujula() {
-  const paleta = paletaPorHora();
-  const alpha = orientacion.alpha || 0;
-  const angulo = ((360 - alpha) * Math.PI) / 180;
-  const cx = innerWidth / 2;
-  const cy = innerHeight / 2 + 30;
-
-  // Flecha clara: punta, brazos, cuerpo y cola.
-  const forma = [
-    [0,-210], [-42,-150], [0,-170], [42,-150],
-    [0,-120], [0,-85], [0,-50], [0,-15], [0,20],
-    [-58,60], [-29,60], [0,60], [29,60], [58,60],
-    [-42,100], [-14,100], [14,100], [42,100],
-    [-24,140], [0,140], [24,140]
-  ];
-
-  objetos.forEach((p, i) => {
-    const [lx, ly] = forma[i % forma.length];
-    const tx = cx + lx * Math.cos(angulo) - ly * Math.sin(angulo);
-    const ty = cy + lx * Math.sin(angulo) + ly * Math.cos(angulo);
-    p.vx += (tx - p.x) * 0.03;
-    p.vy += (ty - p.y) * 0.03;
-    p.el.style.background = paleta[i % paleta.length];
-    p.el.style.boxShadow = `0 0 24px ${paleta[i % paleta.length]}aa`;
-  });
-}
-
-function comportamientoLuz() {
-  const c = Math.max(0, Math.min(1, luzAmbiente));
-  oscuro.style.opacity = 1 - c;
-  fondo.style.background = c > 0.5 ? "#fff8e8" : "#061225";
-  objetos.forEach((p, i) => {
-    const paleta = c > 0.5 ? ["#ffd166", "#fb8500", "#ffb703"] : ["#00bbf9", "#4361ee", "#7209b7"];
-    p.el.style.background = paleta[i % paleta.length];
-    const cx = innerWidth / 2, cy = innerHeight / 2;
-    const fuerza = c < 0.45 ? 0.006 : -0.002;
-    p.vx += (cx - p.x) * fuerza;
-    p.vy += (cy - p.y) * fuerza;
-  });
-}
-
-function comportamientoMiedo() {
-  if (!puntero.activo) return;
-  objetos.forEach(p => {
-    const dx = p.x - puntero.x, dy = p.y - puntero.y;
-    const d = Math.max(1, Math.sqrt(dx*dx + dy*dy));
-    if (d < 190) {
-      p.vx += (dx / d) * 2.2;
-      p.vy += (dy / d) * 2.2;
-    }
-  });
-}
-
-function comportamientoCuriosidad() {
-  if (!puntero.activo) return;
-  objetos.forEach((p, i) => {
-    const tx = puntero.x + Math.sin(Date.now()/300 + i) * 45;
-    const ty = puntero.y + Math.cos(Date.now()/300 + i) * 45;
-    p.vx += (tx - p.x) * 0.012;
-    p.vy += (ty - p.y) * 0.012;
-  });
-}
-
-function comportamientoGalaxia() {
-  const cx = innerWidth/2, cy = innerHeight/2;
-  objetos.forEach(p => {
-    const dx = p.x - cx, dy = p.y - cy;
-    const d = Math.max(20, Math.sqrt(dx*dx + dy*dy));
-    p.vx += (-dy/d) * 0.45 + (cx - p.x) * 0.0012;
-    p.vy += (dx/d) * 0.45 + (cy - p.y) * 0.0012;
-    p.el.style.width = "16px";
-    p.el.style.height = "16px";
-    p.radio = 8;
-  });
-}
-
-function comportamientoCamara() {
-  if (!camaraActiva) return;
-  detectarMovimientoCamara();
-  objetos.forEach((p, i) => {
-    const tx = innerWidth/2 + movimientoCamara.x * innerWidth * 0.7 + Math.sin(Date.now()/350 + i) * 70;
-    const ty = innerHeight/2 + movimientoCamara.y * innerHeight * 0.7 + Math.cos(Date.now()/350 + i) * 70;
-    p.vx += (tx - p.x) * 0.012 * Math.max(0.5, movimientoCamara.fuerza * 8);
-    p.vy += (ty - p.y) * 0.012 * Math.max(0.5, movimientoCamara.fuerza * 8);
-  });
-}
-
-function activarExplosionOscura() {
-  if (explosionRealizada) return;
-  explosionRealizada = true;
-  sonido("explosion");
-  objetos.forEach(p => p.el.classList.add("explota"));
-
-  setTimeout(() => {
-    oscuro.style.opacity = 0.92;
-    oscuro.style.zIndex = 4;
-    capaPuntos.innerHTML = "";
-    objetos = [];
-    crearPunto({ color:"amarillo", x:50, y:35, nota:392 });
-    const punto = objetos[0];
-    punto.el.style.zIndex = 20;
-    punto.el.style.boxShadow = "0 0 44px #ffd000";
-    mensaje.style.color = "white";
-    mensaje.style.textShadow = "0 0 8px black";
-  }, 950);
-}
-
-function iluminarEscena(cantidad) {
-  nivelOscuridad = Math.max(0, nivelOscuridad - cantidad);
-  oscuro.style.opacity = nivelOscuridad;
-  if (nivelOscuridad <= 0.05) {
-    oscuro.style.opacity = 0;
-    mensaje.innerText = "La luz volvió.";
-    mensaje.style.color = "black";
-    mensaje.style.textShadow = "0 1px 0 white, 0 0 10px white";
-  }
-}
-
-window.addEventListener("pointerdown", e => {
-  puntero = { x:e.clientX, y:e.clientY, activo:true };
-
-  if (paginas[paginaActual].tipo === "camara") activarCamara();
-
-  if (paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
-    clearInterval(intervaloOscuridadManual);
-    intervaloOscuridadManual = setInterval(() => {
-      luzAmbiente = Math.max(0, luzAmbiente - 0.035);
-    }, 70);
-  }
-});
-
-window.addEventListener("pointermove", e => {
-  puntero = { x:e.clientX, y:e.clientY, activo:true };
-});
-
-window.addEventListener("pointerup", () => {
-  puntero.activo = false;
-  clearInterval(intervaloOscuridadManual);
-  if (paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
-    const subirLuz = setInterval(() => {
-      luzAmbiente = Math.min(1, luzAmbiente + 0.025);
-      if (luzAmbiente >= 1) clearInterval(subirLuz);
-    }, 70);
-  }
-});
-
-window.addEventListener("deviceorientation", e => {
-  orientacion.alpha = e.alpha || 0;
-  orientacion.beta = e.beta || 0;
-  orientacion.gamma = e.gamma || 0;
-
-  if (["normal", "arrastre"].includes(paginas[paginaActual].tipo)) {
-    objetos.forEach(p => {
-      p.vx += orientacion.gamma * 0.015;
-      p.vy += orientacion.beta * 0.008;
-    });
-  }
-});
-
-window.addEventListener("devicemotion", e => {
-  const acc = e.accelerationIncludingGravity;
-  if (!acc) return;
-  const fuerza = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
-  const ahora = Date.now();
-  if (fuerza > 35 && ahora - ultimoShake > 900) {
-    ultimoShake = ahora;
-    if (paginas[paginaActual].tipo === "explosionOscura") {
-      activarExplosionOscura();
-      return;
-    }
-    if (paginas[paginaActual].tipo === "galaxia") sonido("explosion");
-    objetos.forEach(p => {
-      p.vx += (Math.random()-0.5)*24;
-      p.vy += (Math.random()-0.5)*24;
-    });
-  }
-});
-
-async function activarMicrofono() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    const fuente = audioContext.createMediaStreamSource(stream);
-    analizadorAudio = audioContext.createAnalyser();
-    analizadorAudio.fftSize = 1024;
-    fuente.connect(analizadorAudio);
-    datosAudio = new Uint8Array(analizadorAudio.frequencyBinCount);
-    detectarAudio();
-  } catch (e) {
-    console.log("Micrófono no activado", e);
-  }
-}
-
-function detectarAudio() {
-  if (!analizadorAudio) return;
-  analizadorAudio.getByteFrequencyData(datosAudio);
-  let volumen = 0;
-  for (let i=0; i<datosAudio.length; i++) volumen += datosAudio[i];
-  volumen /= datosAudio.length;
-  const tipo = paginas[paginaActual].tipo;
-  const ahora = Date.now();
-
-  if (volumen > 28 && ahora - ultimoSoplo > 380) {
-    ultimoSoplo = ahora;
-
-    if (tipo === "respiracion") {
-      objetos.forEach(p => {
-        p.vx += (Math.random()-0.5) * (volumen > 45 ? 20 : 5);
-        p.vy -= volumen > 45 ? 12 : 4;
-      });
-      if (volumen > 45) sonido("explosion");
+    function paletaPorHora() {
+      const h = new Date().getHours();
+      // En la noche y madrugada: fríos. Durante el día: cálidos.
+      if (h >= 6 && h < 12) return ["#ffd166", "#ffb703", "#fb8500"];      // mañana cálida
+      if (h >= 12 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];     // tarde cálida intensa
+      if (h >= 17 && h < 19) return ["#f15bb5", "#fee440", "#f9844a"];     // atardecer
+      return ["#00bbf9", "#4361ee", "#7209b7", "#3a0ca3", "#023e8a"];    // noche/madrugada fría
     }
 
-    if (tipo === "ruido") {
-      objetos.forEach(p => {
-        p.vx += (Math.random()-0.5)*14;
-        p.vy += (Math.random()-0.5)*14;
-      });
+    function colorFondoPorPagina(tipo) {
+      const h = new Date().getHours();
+      const esNoche = h >= 19 || h < 6;
+      if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) {
+        return esNoche ? "#07111f" : "#fffaf0";
+      }
+      return "#ffffff";
     }
-  }
 
-  requestAnimationFrame(detectarAudio);
-}
-
-async function activarSensorLuz() {
-  try {
-    if ("AmbientLightSensor" in window) {
-      const sensor = new AmbientLightSensor();
-      sensor.addEventListener("reading", () => {
-        sensorLuzDisponible = true;
-        luzAmbiente = Math.max(0, Math.min(1, sensor.illuminance / 450));
-      });
-      sensor.start();
+    function iniciarAudio() {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === "suspended") audioContext.resume();
     }
-  } catch (e) {
-    sensorLuzDisponible = false;
-  }
-}
 
-async function activarCamara() {
-  if (camaraActiva) return;
-  try {
-    streamCamara = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user" }, audio:false });
-    camara.srcObject = streamCamara;
-    camara.style.opacity = 0.32;
-    camaraActiva = true;
-    frameAnterior = null;
-  } catch (e) {
-    mensaje.innerText = "No se pudo activar la cámara.";
-  }
-}
+    function reproducir(tipo = "pop") {
+      if (!audioContext) return;
+      const t = audioContext.currentTime;
+      const duracion = tipo === "explosion" ? 0.75 : tipo === "caida" ? 0.08 : 0.05;
+      const bufferSize = audioContext.sampleRate * duracion;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
 
-function apagarCamara() {
-  if (streamCamara) {
-    streamCamara.getTracks().forEach(track => track.stop());
-  }
-  streamCamara = null;
-  camara.srcObject = null;
-  camara.style.opacity = 0;
-  camaraActiva = false;
-  frameAnterior = null;
-}
+      for (let i = 0; i < bufferSize; i++) {
+        const fade = 1 - i / bufferSize;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(fade, tipo === "explosion" ? 2.5 : 2);
+      }
 
-function detectarMovimientoCamara() {
-  if (!camaraActiva || camara.readyState < 2) return;
-  const w = 48, h = 36;
-  canvasCamara.width = w;
-  canvasCamara.height = h;
-  ctxCamara.drawImage(camara, 0, 0, w, h);
-  const img = ctxCamara.getImageData(0, 0, w, h).data;
+      const ruido = audioContext.createBufferSource();
+      ruido.buffer = buffer;
+      const filtro = audioContext.createBiquadFilter();
+      filtro.type = "lowpass";
+      const gain = audioContext.createGain();
 
-  if (!frameAnterior) {
-    frameAnterior = new Uint8ClampedArray(img);
-    return;
-  }
+      if (tipo === "pop") { filtro.frequency.value = 900; gain.gain.value = 0.18; }
+      if (tipo === "rebote") { filtro.frequency.value = 550; gain.gain.value = 0.13; }
+      if (tipo === "caida") { filtro.frequency.value = 260; gain.gain.value = 0.15; }
+      if (tipo === "explosion") { filtro.frequency.setValueAtTime(1200, t); filtro.frequency.exponentialRampToValueAtTime(90, t + duracion); gain.gain.value = 0.55; }
 
-  let suma = 0, mx = 0, my = 0, cuenta = 0;
-  for (let y=0; y<h; y++) {
-    for (let x=0; x<w; x++) {
-      const idx = (y*w + x)*4;
-      const diff = Math.abs(img[idx] - frameAnterior[idx]) + Math.abs(img[idx+1] - frameAnterior[idx+1]) + Math.abs(img[idx+2] - frameAnterior[idx+2]);
-      if (diff > 55) {
-        suma += diff;
-        mx += x;
-        my += y;
-        cuenta++;
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duracion);
+      ruido.connect(filtro);
+      filtro.connect(gain);
+      gain.connect(audioContext.destination);
+      ruido.start(t);
+      ruido.stop(t + duracion);
+    }
+
+    function cargarPagina(indice) {
+      paginaActual = indice;
+      const pagina = paginas[paginaActual];
+      paginaFondo.src = "";
+      videoCamara.style.opacity = 0;
+      camaraActiva = false;
+      mensaje.textContent = pagina.mensaje;
+      fondoColor.style.background = colorFondoPorPagina(pagina.tipo);
+      capaPuntos.innerHTML = "";
+      objetos = [];
+      explosionRealizada = false;
+      nivelOscuridad = 0;
+      capaOscura.style.opacity = 0;
+      capaOscura.style.transition = "opacity 0.5s ease";
+      nivelLuzPunto = 0;
+      capaLuz.style.opacity = 0;
+      capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
+      fondoColor.style.filter = "none";
+
+      pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y));
+      aplicarColorPorHora();
+    }
+
+    function crearPunto(color, xPorcentaje, yPorcentaje) {
+      const el = document.createElement("div");
+      el.className = `punto ${color}`;
+      capaPuntos.appendChild(el);
+
+      const objeto = {
+        el,
+        color,
+        x: (window.innerWidth * xPorcentaje) / 100,
+        y: (window.innerHeight * yPorcentaje) / 100,
+        vx: 0,
+        vy: 0,
+        radio: 32,
+        ultimoSonido: 0,
+        arrastrando: false,
+        cargandoLuz: false,
+        cargandoSalto: false,
+        inicioPresion: 0,
+        intervaloLuz: null,
+        ultimoX: 0,
+        ultimoY: 0,
+        ultimoTiempo: 0,
+        estado: "normal"
+      };
+
+      el.addEventListener("pointerdown", e => manejarPuntoDown(e, objeto));
+      el.addEventListener("pointermove", e => manejarPuntoMove(e, objeto));
+      el.addEventListener("pointerup", e => manejarPuntoUp(e, objeto));
+      el.addEventListener("pointercancel", () => cancelarAcciones(objeto));
+      objetos.push(objeto);
+    }
+
+    function manejarPuntoDown(e, p) {
+      const tipo = paginas[paginaActual].tipo;
+
+      if (tipo === "explosionOscura" && explosionRealizada && nivelOscuridad > 0.05) {
+        p.cargandoLuz = true;
+        p.arrastrando = false;
+        p.el.setPointerCapture(e.pointerId);
+        mensaje.textContent = "Sigue presionando... la luz está volviendo.";
+        p.intervaloLuz = setInterval(() => {
+          iluminarEscenaDesdePunto(0.035, p);
+        }, 80);
+        if (navigator.vibrate) navigator.vibrate(35);
+        return;
+      }
+
+      if (["salto", "cadena", "explotaPresion"].includes(tipo)) {
+        p.cargandoSalto = true;
+        p.inicioPresion = Date.now();
+        p.el.classList.add("palpita");
+        p.el.setPointerCapture(e.pointerId);
+        return;
+      }
+
+      p.arrastrando = true;
+      p.ultimoX = e.clientX;
+      p.ultimoY = e.clientY;
+      p.ultimoTiempo = Date.now();
+      p.vx = 0;
+      p.vy = 0;
+      p.el.setPointerCapture(e.pointerId);
+      reproducir("pop");
+      if (navigator.vibrate) navigator.vibrate(35);
+    }
+
+    function manejarPuntoMove(e, p) {
+      if (p.cargandoLuz || p.cargandoSalto) return;
+      if (!p.arrastrando) return;
+      const ahora = Date.now();
+      const dt = Math.max(16, ahora - p.ultimoTiempo);
+      p.vx = (e.clientX - p.ultimoX) / dt * 16;
+      p.vy = (e.clientY - p.ultimoY) / dt * 16;
+      p.x = e.clientX;
+      p.y = e.clientY;
+      p.ultimoX = e.clientX;
+      p.ultimoY = e.clientY;
+      p.ultimoTiempo = ahora;
+    }
+
+    function manejarPuntoUp(e, p) {
+      if (p.cargandoLuz) {
+        p.cargandoLuz = false;
+        clearInterval(p.intervaloLuz);
+        p.intervaloLuz = null;
+        p.el.releasePointerCapture(e.pointerId);
+        mensaje.textContent = nivelOscuridad <= 0.05 ? "La luz volvió. Ahora sóplalo para apagar la página." : "Mantén presionado un poco más.";
+        return;
+      }
+
+      if (p.cargandoSalto) {
+        const tipo = paginas[paginaActual].tipo;
+        const duracion = Date.now() - p.inicioPresion;
+        p.cargandoSalto = false;
+        p.el.classList.remove("palpita");
+        p.el.releasePointerCapture(e.pointerId);
+
+        if (tipo === "explotaPresion" && duracion > 1600) {
+          explotarPuntoIndividual(p);
+          return;
+        }
+
+        const fuerza = Math.min(24, 7 + duracion / 90);
+        p.vy -= fuerza;
+        p.vx += (Math.random() - 0.5) * 8;
+        reproducir("pop");
+
+        if (tipo === "cadena") saltoEnCadena();
+        if (tipo === "salto" && fuerza > 18) siguientePagina();
+        return;
+      }
+
+      p.arrastrando = false;
+      try { p.el.releasePointerCapture(e.pointerId); } catch {}
+      reproducir("rebote");
+    }
+
+    function cancelarAcciones(p) {
+      p.arrastrando = false;
+      p.cargandoLuz = false;
+      p.cargandoSalto = false;
+      p.el.classList.remove("palpita");
+      clearInterval(p.intervaloLuz);
+      p.intervaloLuz = null;
+    }
+
+    function aplicarColorPorHora() {
+      const paleta = paletaPorHora();
+      const tipo = paginas[paginaActual].tipo;
+      if (["brujula", "luz", "ruido", "respiracion", "galaxia"].includes(tipo)) {
+        objetos.forEach((p, i) => {
+          p.el.style.background = paleta[i % paleta.length];
+          p.el.style.boxShadow = `0 0 14px ${paleta[i % paleta.length]}55`;
+        });
       }
     }
-  }
 
-  frameAnterior = new Uint8ClampedArray(img);
+    function animar() {
+      const tipo = paginas[paginaActual].tipo;
+      aplicarComportamientoDePagina(tipo);
 
-  if (cuenta > 8) {
-    movimientoCamara.x = (mx/cuenta - w/2) / (w/2);
-    movimientoCamara.y = (my/cuenta - h/2) / (h/2);
-    movimientoCamara.fuerza = Math.min(1, suma / 90000);
-  } else {
-    movimientoCamara.fuerza *= 0.92;
-  }
-}
+      objetos.forEach(p => {
+        if (p.arrastrando || p.cargandoLuz || p.cargandoSalto) {
+          p.el.style.left = `${p.x}px`;
+          p.el.style.top = `${p.y}px`;
+          return;
+        }
 
-function siguientePagina() {
-  const ahora = Date.now();
-  if (ahora - ultimoCambioPagina < 800) return;
-  ultimoCambioPagina = ahora;
-  cargarPagina((paginaActual + 1) % paginas.length);
-}
+        p.vy += tipo === "galaxia" ? 0 : 0.08;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
 
-capaPuntos.addEventListener("dblclick", siguientePagina);
+        const minX = p.radio;
+        const maxX = window.innerWidth - p.radio;
+        const minY = p.radio;
+        const maxY = window.innerHeight - p.radio;
 
-btnInicio.addEventListener("click", async () => {
-  inicio.style.display = "none";
-  iniciarAudio();
+        if (p.x < minX) { const imp = Math.abs(p.vx); p.x = minX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
+        if (p.x > maxX) { const imp = Math.abs(p.vx); p.x = maxX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
+        if (p.y < minY) { const imp = Math.abs(p.vy); p.y = minY; p.vy *= -0.55; sonarImpacto(p, imp, "rebote"); }
+        if (p.y > maxY) {
+          const imp = Math.abs(p.vy);
+          p.y = maxY;
+          if (imp < VELOCIDAD_MINIMA_SONIDO) { p.vy = 0; p.vx *= 0.82; }
+          else { p.vy *= -0.45; sonarImpacto(p, imp, "caida"); }
+        }
 
-  try {
-    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") await DeviceMotionEvent.requestPermission();
-    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") await DeviceOrientationEvent.requestPermission();
-  } catch (e) {}
+        if (Math.abs(p.vx) < VELOCIDAD_REPOSO) p.vx = 0;
+        if (Math.abs(p.vy) < VELOCIDAD_REPOSO) p.vy = 0;
+        if (p.y >= maxY - 1 && Math.abs(p.vx) < VELOCIDAD_REPOSO * 2 && Math.abs(p.vy) < VELOCIDAD_REPOSO * 2) {
+          p.y = maxY; p.vx = 0; p.vy = 0;
+        }
 
-  activarMicrofono();
-  activarSensorLuz();
-  cargarPagina(0);
-  animar();
-});
-</script>
+        p.el.style.left = `${p.x}px`;
+        p.el.style.top = `${p.y}px`;
+      });
+
+      requestAnimationFrame(animar);
+    }
+
+    function aplicarComportamientoDePagina(tipo) {
+      if (tipo === "ejercicio") comportamientoEjercicio();
+      if (tipo === "brujula") comportamientoBrujula();
+      if (tipo === "camara") comportamientoCamara();
+      if (tipo === "luz") comportamientoLuz();
+      if (tipo === "miedo") comportamientoMiedo();
+      if (tipo === "curiosidad") comportamientoCuriosidad();
+      if (tipo === "ruido") comportamientoRuido();
+      if (tipo === "galaxia") comportamientoGalaxia();
+    }
+
+    function comportamientoBrujula() {
+      const paleta = paletaPorHora();
+      const norte = orientacion.alpha || 0;
+      const angulo = ((360 - norte) * Math.PI) / 180;
+      const centroX = window.innerWidth / 2;
+      const centroY = window.innerHeight / 2 + 25;
+
+      // Forma de flecha: punta, cuerpo y cola. Luego se rota hacia el norte.
+      const formaFlecha = [
+        [0, -190],
+        [-35, -130], [0, -145], [35, -130],
+        [0, -95],
+        [0, -55],
+        [0, -15],
+        [0, 25],
+        [-55, 65], [-25, 65], [0, 65], [25, 65], [55, 65],
+        [-42, 105], [-14, 105], [14, 105], [42, 105],
+        [-28, 145], [0, 145], [28, 145],
+        [0, 180]
+      ];
+
+      objetos.forEach((p, i) => {
+        const punto = formaFlecha[i % formaFlecha.length];
+        const localX = punto[0];
+        const localY = punto[1];
+        const tx = centroX + localX * Math.cos(angulo) - localY * Math.sin(angulo);
+        const ty = centroY + localX * Math.sin(angulo) + localY * Math.cos(angulo);
+
+        p.vx += (tx - p.x) * 0.012;
+        p.vy += (ty - p.y) * 0.012;
+        p.el.style.background = paleta[i % paleta.length];
+        p.el.style.boxShadow = `0 0 22px ${paleta[i % paleta.length]}99`;
+      });
+    }
+
+    function comportamientoLuz() {
+      const claridad = Math.max(0, Math.min(1, luzAmbiente));
+      fondoColor.style.filter = `brightness(${0.45 + claridad * 0.75})`;
+      capaOscura.style.opacity = 1 - claridad;
+      objetos.forEach((p, i) => {
+        const paleta = claridad > 0.5 ? ["#ffd166", "#fb8500", "#ffb703"] : ["#4361ee", "#3a0ca3", "#00bbf9"];
+        p.el.style.background = paleta[i % paleta.length];
+        const centroX = window.innerWidth / 2;
+        const centroY = window.innerHeight / 2;
+        p.vx += (centroX - p.x) * (claridad < 0.4 ? 0.002 : -0.0008);
+        p.vy += (centroY - p.y) * (claridad < 0.4 ? 0.002 : -0.0008);
+      });
+    }
+
+    function comportamientoMiedo() {
+      if (!puntero.activo) return;
+      objetos.forEach(p => {
+        const dx = p.x - puntero.x;
+        const dy = p.y - puntero.y;
+        const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        if (d < 170) {
+          p.vx += (dx / d) * 1.7;
+          p.vy += (dy / d) * 1.7;
+        }
+      });
+    }
+
+    function comportamientoCuriosidad() {
+      if (!puntero.activo) return;
+      objetos.forEach((p, i) => {
+        const tx = puntero.x + Math.sin(Date.now() / 300 + i) * 45;
+        const ty = puntero.y + Math.cos(Date.now() / 300 + i) * 45;
+        p.vx += (tx - p.x) * 0.006;
+        p.vy += (ty - p.y) * 0.006;
+      });
+    }
+
+    function comportamientoRuido() {
+      // Se alimenta desde el micrófono. En silencio, los puntos vuelven al centro.
+      objetos.forEach((p, i) => {
+        const tx = window.innerWidth * (0.35 + (i % 5) * 0.075);
+        const ty = window.innerHeight * (0.35 + Math.floor(i / 5) * 0.1);
+        p.vx += (tx - p.x) * 0.0015;
+        p.vy += (ty - p.y) * 0.0015;
+      });
+    }
+
+    function comportamientoGalaxia() {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      objetos.forEach((p, i) => {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const d = Math.max(30, Math.sqrt(dx * dx + dy * dy));
+        p.vx += (-dy / d) * 0.35 + (cx - p.x) * 0.0008;
+        p.vy += (dx / d) * 0.35 + (cy - p.y) * 0.0008;
+        p.el.style.width = "18px";
+        p.el.style.height = "18px";
+        p.radio = 9;
+      });
+    }
+
+    function comportamientoCamara() {
+      if (!camaraActiva) return;
+      objetos.forEach((p, i) => {
+        const tx = window.innerWidth / 2 + movimientoCamara.x * 180 + Math.sin(Date.now() / 400 + i) * 90;
+        const ty = window.innerHeight / 2 + movimientoCamara.y * 180 + Math.cos(Date.now() / 400 + i) * 90;
+        p.vx += (tx - p.x) * 0.006;
+        p.vy += (ty - p.y) * 0.006;
+      });
+    }
+
+    function comportamientoEjercicio() {
+      objetos.forEach((p, i) => {
+        const onda = Math.sin(Date.now() / 220 + i);
+        p.vy += onda * 0.12;
+        p.vx += Math.cos(Date.now() / 260 + i) * 0.04;
+      });
+    });
+    }
+
+    function sonarImpacto(p, impacto, tipo) {
+      const ahora = Date.now();
+      if (impacto < VELOCIDAD_MINIMA_SONIDO) return;
+      if (ahora - p.ultimoSonido < 260) return;
+      p.ultimoSonido = ahora;
+      reproducir(tipo);
+    }
+
+    function siguientePagina() {
+      const ahora = Date.now();
+      if (ahora - ultimoCambioPagina < TIEMPO_ENTRE_CAMBIO_PAGINA) return;
+      ultimoCambioPagina = ahora;
+      const nueva = (paginaActual + 1) % paginas.length;
+      cargarPagina(nueva);
+      reproducir("pop");
+    }
+
+    function paginaAnterior() {
+      const ahora = Date.now();
+      if (ahora - ultimoCambioPagina < TIEMPO_ENTRE_CAMBIO_PAGINA) return;
+      ultimoCambioPagina = ahora;
+      const anterior = (paginaActual - 1 + paginas.length) % paginas.length;
+      cargarPagina(anterior);
+      reproducir("rebote");
+    }
+
+    capaPuntos.addEventListener("dblclick", siguientePagina);
+
+    // Dos dedos = volver atrás.
+    window.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) paginaAnterior();
+    });
+
+    function activarExplosionOscura() {
+      explosionRealizada = true;
+      mensaje.textContent = "¡BOOM! Los puntos explotaron.";
+      reproducir("explosion");
+      if (navigator.vibrate) navigator.vibrate([120, 60, 180, 80, 250]);
+
+      objetos.forEach(p => {
+        p.el.classList.add("explota");
+        p.vx += (Math.random() - 0.5) * 38;
+        p.vy += (Math.random() - 0.5) * 38;
+      });
+
+      const colores = ["amarillo", "rojo", "azul"];
+      for (let i = 0; i < 60; i++) {
+        crearPunto(colores[Math.floor(Math.random() * colores.length)], Math.random() * 100, Math.random() * 100);
+        const nuevo = objetos[objetos.length - 1];
+        nuevo.el.style.width = "42px";
+        nuevo.el.style.height = "42px";
+        nuevo.el.classList.add("explota");
+        nuevo.vx = (Math.random() - 0.5) * 45;
+        nuevo.vy = (Math.random() - 0.5) * 45;
+      }
+
+      setTimeout(() => {
+        capaOscura.style.transition = "opacity 2.2s ease";
+        nivelOscuridad = 1;
+        capaOscura.style.opacity = 1;
+      }, 700);
+
+      setTimeout(() => {
+        capaPuntos.innerHTML = "";
+        objetos = [];
+        crearPunto("amarillo", 50, 38);
+        objetos[0].el.style.opacity = "1";
+        objetos[0].el.style.boxShadow = "0 0 24px rgba(255, 213, 30, 0.9)";
+        mensaje.textContent = "Mantén presionado el punto amarillo para encender la luz.";
+      }, 2200);
+    }
+
+    function iluminarEscena(cantidad) {
+      iluminarEscenaDesdePunto(cantidad, objetos[0]);
+    }
+
+    function iluminarEscenaDesdePunto(cantidad, punto) {
+      if (paginas[paginaActual].tipo !== "explosionOscura" || !explosionRealizada) return;
+
+      nivelLuzPunto = Math.min(1, nivelLuzPunto + cantidad);
+      nivelOscuridad = Math.max(0, 1 - nivelLuzPunto);
+
+      if (punto) {
+        const x = punto.x;
+        const y = punto.y;
+        capaLuz.style.left = `${x}px`;
+        capaLuz.style.top = `${y}px`;
+        capaLuz.style.opacity = String(Math.min(1, 0.25 + nivelLuzPunto));
+        capaLuz.style.transform = `translate(-50%, -50%) scale(${0.4 + nivelLuzPunto * 18})`;
+
+        punto.el.style.opacity = "1";
+        punto.el.style.zIndex = "30";
+        punto.el.style.transform = `translate(-50%, -50%) scale(${1 + nivelLuzPunto * 1.25})`;
+        punto.el.style.boxShadow = `0 0 ${40 + nivelLuzPunto * 140}px rgba(255, 213, 30, 1)`;
+      }
+
+      capaOscura.style.opacity = nivelOscuridad;
+
+      if (nivelLuzPunto >= 1) {
+        nivelLuzPunto = 1;
+        nivelOscuridad = 0;
+        capaOscura.style.opacity = 0;
+        capaLuz.style.opacity = 0;
+        capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
+        fondoColor.style.background = "#ffffff";
+
+        // Al terminar de iluminar, queda únicamente el puntito amarillo.
+        const puntoX = punto ? (punto.x / window.innerWidth) * 100 : 50;
+        const puntoY = punto ? (punto.y / window.innerHeight) * 100 : 38;
+        capaPuntos.innerHTML = "";
+        objetos = [];
+        crearPunto("amarillo", puntoX, puntoY);
+        objetos[0].el.style.zIndex = "30";
+        objetos[0].el.style.boxShadow = "0 0 45px rgba(255, 213, 30, 0.95)";
+
+        mensaje.textContent = "La luz volvió. Ahora sóplalo para apagar la página.";
+      }
+    }
+
+    function apagarEscenaPorSoplo() {
+      if (paginas[paginaActual].tipo !== "explosionOscura") return false;
+      if (!explosionRealizada || nivelOscuridad > 0.1) return false;
+      nivelOscuridad = 1;
+      nivelLuzPunto = 0;
+      capaOscura.style.opacity = 1;
+      capaLuz.style.opacity = 0;
+      capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
+      mensaje.textContent = "Soplaste... y apagaste la página.";
+      if (objetos[0]) objetos[0].el.style.opacity = "0";
+      if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+      return true;
+    }
+
+    function saltoEnCadena() {
+      objetos.forEach((p, i) => {
+        setTimeout(() => {
+          p.vy -= 12 + Math.random() * 8;
+          p.vx += (Math.random() - 0.5) * 8;
+          reproducir("pop");
+        }, i * 120);
+      });
+    }
+
+    function explotarPuntoIndividual(p) {
+      p.el.classList.add("explota");
+      reproducir("explosion");
+      for (let i = 0; i < 10; i++) {
+        crearPunto(p.color, (p.x / window.innerWidth) * 100, (p.y / window.innerHeight) * 100);
+        const n = objetos[objetos.length - 1];
+        n.vx = (Math.random() - 0.5) * 28;
+        n.vy = (Math.random() - 0.5) * 28;
+        n.el.style.width = "30px";
+        n.el.style.height = "30px";
+        n.radio = 15;
+      }
+    }
+
+    window.addEventListener("deviceorientation", e => {
+      if (!sensoresActivos) return;
+      orientacion.alpha = e.alpha || 0;
+      orientacion.beta = e.beta || 0;
+      orientacion.gamma = e.gamma || 0;
+
+      if (["normal", "explosionOscura"].includes(paginas[paginaActual].tipo)) {
+        objetos.forEach(p => {
+          p.vx += orientacion.gamma * 0.012;
+          p.vy += orientacion.beta * 0.006;
+        });
+      }
+    });
+
+    window.addEventListener("devicemotion", e => {
+      if (!sensoresActivos) return;
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+      const fuerza = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+      const ahora = Date.now();
+
+      if (fuerza > 35 && ahora - ultimoShake > 900) {
+        if (paginas[paginaActual].tipo === "ejercicio") {
+          mensaje.textContent = "¡Sigue moviéndote!";
+          objetos.forEach((p, i) => {
+            p.vx += (Math.random() - 0.5) * 60;
+            p.vy += (Math.random() - 0.5) * 60;
+            p.el.style.transform = `translate(-50%, -50%) scale(${1 + Math.random() * 2})`;
+          });
+          reproducir("explosion");
+          fondoColor.style.background = `hsl(${Math.random()*360}, 90%, 70%)`;
+        }
+        ultimoShake = ahora;
+        const tipo = paginas[paginaActual].tipo;
+
+        if (tipo === "explosionOscura" && !explosionRealizada) {
+          activarExplosionOscura();
+          return;
+        }
+
+        if (tipo === "galaxia") {
+          mensaje.textContent = "La galaxia despertó.";
+          objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 35; p.vy += (Math.random() - 0.5) * 35; });
+          reproducir("explosion");
+          return;
+        }
+
+        mensaje.textContent = "¡Agitado!";
+        objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 24; p.vy += (Math.random() - 0.5) * 24; });
+        reproducir("pop");
+        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+      }
+    });
+
+    window.addEventListener("pointerdown", e => {
+      if (paginas[paginaActual].tipo === "camara" && !camaraActiva) activarCamara();
+      puntero = { x: e.clientX, y: e.clientY, activo: true };
+      inicioToqueY = e.clientY;
+    });
+
+    window.addEventListener("pointermove", e => {
+      puntero = { x: e.clientX, y: e.clientY, activo: true };
+      if (inicioToqueY !== null && paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
+        const diferencia = inicioToqueY - e.clientY;
+        if (Math.abs(diferencia) > 8) {
+          luzAmbiente = Math.max(0, Math.min(1, luzAmbiente + diferencia / 600));
+          inicioToqueY = e.clientY;
+        }
+      }
+    });
+
+    window.addEventListener("pointerup", () => {
+      puntero.activo = false;
+      inicioToqueY = null;
+    });
+
+    async function activarCamara() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        videoCamara.srcObject = stream;
+        videoCamara.style.opacity = 0.35;
+        camaraActiva = true;
+        camaraLista = true;
+        mensaje.textContent = "Cámara activa. Muévete: los puntos reaccionan a tu presencia.";
+
+        // Reacción simple sin análisis pesado: usa orientación y movimiento del dispositivo como sustituto visual.
+        // Más adelante podemos cambiar esto por detección real de movimiento en video.
+        setInterval(() => {
+          movimientoCamara.x = Math.sin(Date.now() / 900) * 0.4 + (orientacion.gamma || 0) / 90;
+          movimientoCamara.y = Math.cos(Date.now() / 1100) * 0.4 + (orientacion.beta || 0) / 160;
+        }, 120);
+      } catch (error) {
+        mensaje.textContent = "No se pudo activar la cámara. Revisa permisos del navegador.";
+      }
+    }
+
+    async function activarMicrofono() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const fuente = audioContext.createMediaStreamSource(stream);
+        analizadorAudio = audioContext.createAnalyser();
+        analizadorAudio.fftSize = 1024;
+        datosAudio = new Uint8Array(analizadorAudio.frequencyBinCount);
+        fuente.connect(analizadorAudio);
+        microfonoActivo = true;
+        detectarSonido();
+      } catch (error) {
+        mensaje.textContent = "Micrófono no activado. Revisa permisos.";
+      }
+    }
+
+    function detectarSonido() {
+      if (!microfonoActivo || !analizadorAudio) return;
+      analizadorAudio.getByteFrequencyData(datosAudio);
+      let volumen = 0;
+      for (let i = 0; i < datosAudio.length; i++) volumen += datosAudio[i];
+      volumen /= datosAudio.length;
+      const ahora = Date.now();
+      const tipo = paginas[paginaActual].tipo;
+
+      if (volumen > 24 && ahora - ultimoSoplo > 450) {
+        ultimoSoplo = ahora;
+
+        if (apagarEscenaPorSoplo()) {
+          siguientePagina();
+          requestAnimationFrame(detectarSonido);
+          return;
+        }
+
+        if (tipo === "respiracion") {
+          mensaje.textContent = volumen > 42 ? "Tormenta de soplo." : "Soplo suave.";
+          objetos.forEach(p => {
+            p.vx += (Math.random() - 0.5) * (volumen > 42 ? 18 : 4);
+            p.vy -= volumen > 42 ? 12 : 4;
+          });
+          if (volumen > 42) reproducir("explosion");
+        } else if (tipo === "ruido") {
+          mensaje.textContent = "Los puntos tiemblan con el ruido.";
+          objetos.forEach(p => {
+            p.vx += (Math.random() - 0.5) * 12;
+            p.vy += (Math.random() - 0.5) * 12;
+          });
+        } else {
+          mensaje.textContent = "¡Soplo detectado!";
+          objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 4; p.vy -= 5; });
+        }
+
+        if (navigator.vibrate) navigator.vibrate(25);
+      }
+
+      if (tipo !== "explosionOscura" && volumen > 46 && ahora - ultimoCambioPagina > TIEMPO_ENTRE_CAMBIO_PAGINA && tipo !== "respiracion" && tipo !== "ruido") {
+        siguientePagina();
+      }
+
+      requestAnimationFrame(detectarSonido);
+    }
+
+    async function activarSensorLuz() {
+      try {
+        if ("AmbientLightSensor" in window) {
+          const sensor = new AmbientLightSensor();
+          sensor.addEventListener("reading", () => {
+            sensorLuzDisponible = true;
+            luzAmbiente = Math.max(0, Math.min(1, sensor.illuminance / 500));
+          });
+          sensor.start();
+        }
+      } catch (error) {
+        sensorLuzDisponible = false;
+      }
+    }
+
+    async function pedirPermisos() {
+      try {
+        if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") await DeviceMotionEvent.requestPermission();
+        if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") await DeviceOrientationEvent.requestPermission();
+      } catch (error) {}
+
+      iniciarAudio();
+      reproducir("pop");
+      await activarMicrofono();
+      await activarSensorLuz();
+      sensoresActivos = true;
+      panelInicio.style.display = "none";
+      cargarPagina(0);
+      animar();
+    }
+
+    btnIniciar.addEventListener("click", pedirPermisos);
+    window.addEventListener("resize", () => cargarPagina(paginaActual));
+  </script>
 </body>
 </html>
