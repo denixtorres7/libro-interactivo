@@ -193,20 +193,20 @@
 
     const paginas = [
       { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55 }] },
-      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo. Al soltarlos, siguen con impulso.", puntos: [{ color: "amarillo", x: 32, y: 55 }, { color: "rojo", x: 50, y: 55 }, { color: "azul", x: 68, y: 55 }] },
-      { tipo: "normal", mensaje: "Inclina el celular. Los puntos ruedan como si tuvieran gravedad.", puntos: [{ color: "amarillo", x: 28, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 72, y: 45 }] },
-      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después mantén presionado el punto amarillo para encender la luz.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
-      { tipo: "brujula", mensaje: "Brújula viva: gira el celular. Los puntos forman una flecha hacia el norte y cambian según la hora.", puntos: crearPuntosIniciales(21) },
-      { tipo: "luz", mensaje: "Luz y sombra: ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
-      { tipo: "miedo", mensaje: "Acerca el dedo. Los puntos tendrán miedo y huirán.", puntos: crearPuntosIniciales(14) },
-      { tipo: "curiosidad", mensaje: "Mueve el dedo despacio. Los puntos te seguirán como criaturas.", puntos: crearPuntosIniciales(12) },
-      { tipo: "salto", mensaje: "Mantén presionado un punto. Al soltarlo, saltará.", puntos: crearPuntosIniciales(8) },
-      { tipo: "cadena", mensaje: "Haz saltar uno. Los demás saltarán en cadena.", puntos: crearPuntosIniciales(10) },
-      { tipo: "explotaPresion", mensaje: "Mantén demasiado tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
-      { tipo: "ruido", mensaje: "Aplaude o haz ruido. En silencio vuelven a calmarse.", puntos: crearPuntosIniciales(15) },
-      { tipo: "respiracion", mensaje: "Sopla suave: flotan. Sopla fuerte: tormenta.", puntos: crearPuntosIniciales(18) },
-      { tipo: "galaxia", mensaje: "Agita el celular. Los puntos formarán una galaxia.", puntos: crearPuntosIniciales(28) },
-      { tipo: "camara", mensaje: "Cámara viva: toca la pantalla para activar cámara. Muévete y los puntos reaccionarán.", puntos: crearPuntosIniciales(18) }
+      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55 }, { color: "rojo", x: 50, y: 55 }, { color: "azul", x: 68, y: 55 }] },
+      { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 72, y: 45 }] },
+      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
+      { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
+      { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
+      { tipo: "miedo", mensaje: "Acerca el dedo.", puntos: crearPuntosIniciales(14) },
+      { tipo: "curiosidad", mensaje: "Mueve el dedo despacio por la pantalla.", puntos: crearPuntosIniciales(12) },
+      { tipo: "salto", mensaje: "Mantén presionado un punto, ahora ¡Sueltalo!, puntos: crearPuntosIniciales(8) },
+      { tipo: "cadena", mensaje: "Haz saltar un punto.", puntos: crearPuntosIniciales(10) },
+      { tipo: "explotaPresion", mensaje: "Mantén presionada la pantalla un tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
+      { tipo: "ruido", mensaje: "Aplaude o haz ruido.", puntos: crearPuntosIniciales(15) },
+      { tipo: "respiracion", mensaje: "Sopla suave. Ahora, ¡Sopla fuerte!.", puntos: crearPuntosIniciales(18) },
+      { tipo: "galaxia", mensaje: "Agita el celular  y verás las estrellas", puntos: crearPuntosIniciales(28) },
+      { tipo: "camara", mensaje: "Toca la pantalla para activar cámara. Ahora, ¡Muévete!", puntos: crearPuntosIniciales(18) }
     ];
 
     function crearPuntosIniciales(cantidad) {
