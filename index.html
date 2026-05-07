@@ -29,7 +29,7 @@
       inset: 0;
       z-index: 0;
       background: white;
-      transition: background 0.6s ease, filter 0.5s ease;
+      transition: background 0.8s ease, filter 0.6s ease;
     }
 
     #videoCamara {
@@ -47,7 +47,7 @@
     #capaPuntos {
       position: absolute;
       inset: 0;
-      z-index: 5;
+      z-index: 12;
       pointer-events: auto;
     }
 
@@ -58,30 +58,44 @@
       opacity: 0;
       z-index: 8;
       pointer-events: none;
-      transition: opacity 0.5s ease;
+      transition: opacity 1.1s ease;
     }
 
     #capaLuz {
       position: absolute;
-      width: 80px;
-      height: 80px;
+      width: 90px;
+      height: 90px;
       border-radius: 50%;
       left: 50%;
-      top: 38%;
+      top: 35%;
       transform: translate(-50%, -50%) scale(0);
-      z-index: 9;
+      z-index: 10;
       pointer-events: none;
       opacity: 0;
       background: radial-gradient(circle,
-        rgba(255, 240, 120, 1) 0%,
+        rgba(255, 245, 130, 1) 0%,
         rgba(255, 213, 30, 0.95) 18%,
-        rgba(255, 255, 255, 0.85) 42%,
-        rgba(255, 255, 255, 0.35) 68%,
+        rgba(255, 255, 255, 0.92) 42%,
+        rgba(255, 255, 255, 0.42) 72%,
         rgba(255, 255, 255, 0) 100%
       );
       filter: blur(2px);
       mix-blend-mode: screen;
-      transition: opacity 0.25s ease, transform 0.18s ease;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    #hueco {
+      position: absolute;
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #000 0%, #111 45%, #333 72%, transparent 73%);
+      z-index: 3;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: inset 0 0 22px rgba(255,255,255,0.18), 0 8px 28px rgba(0,0,0,0.35);
+      transition: opacity 0.4s ease;
     }
 
     .punto {
@@ -91,8 +105,8 @@
       border-radius: 50%;
       transform: translate(-50%, -50%);
       will-change: left, top, transform, background, opacity;
-      box-shadow: 0 5px 12px rgba(0,0,0,0.18);
-      transition: background 0.4s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transition: background 0.4s ease, box-shadow 0.3s ease, opacity 0.3s ease, width 0.3s ease, height 0.3s ease;
     }
 
     .amarillo { background: #ffd51e; }
@@ -119,7 +133,7 @@
       left: 50%;
       top: max(18px, env(safe-area-inset-top));
       transform: translateX(-50%);
-      z-index: 18;
+      z-index: 30;
       font-size: clamp(18px, 4.2vw, 28px);
       line-height: 1.18;
       color: #111;
@@ -127,6 +141,21 @@
       text-align: center;
       width: min(92vw, 680px);
       font-weight: 700;
+      text-shadow: 0 1px 0 white, 0 0 10px white;
+    }
+
+    #autora {
+      position: absolute;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 30;
+      font-size: clamp(15px, 3.6vw, 22px);
+      color: #222;
+      text-align: center;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.5s ease;
       text-shadow: 0 1px 0 white, 0 0 10px white;
     }
 
@@ -157,15 +186,18 @@
   <main id="libro">
     <div id="fondoColor"></div>
     <video id="videoCamara" autoplay playsinline muted></video>
-    <div id="capaPuntos"></div>
+    <div id="hueco"></div>
     <div id="capaOscura"></div>
     <div id="capaLuz"></div>
+    <div id="capaPuntos"></div>
     <div id="mensaje">Toca iniciar</div>
+    
 
     <section id="panelInicio">
       <div>
         <h1>Libro sensorial</h1>
         <p>Toca para activar sonido, movimiento, micrófono y sensores.</p>
+        <p style="font-weight:600; margin-top:6px;">Autora: Denize Asceneth Torres Ruiz</p>
         <button id="btnIniciar">Iniciar experiencia</button>
       </div>
     </section>
@@ -178,8 +210,10 @@
     const capaOscura = document.getElementById("capaOscura");
     const capaLuz = document.getElementById("capaLuz");
     const mensaje = document.getElementById("mensaje");
+    
     const panelInicio = document.getElementById("panelInicio");
     const btnIniciar = document.getElementById("btnIniciar");
+    const hueco = document.getElementById("hueco");
 
     let paginaActual = 0;
     let objetos = [];
@@ -206,6 +240,9 @@
     let frameAnterior = null;
     let movimientoCamara = { x: 0, y: 0, fuerza: 0 };
     let intervaloOscuridadManual = null;
+    let bolitasSacadas = 0;
+    let carambolaValida = false;
+    let bolaActiva = null;
 
     const VELOCIDAD_MINIMA_SONIDO = 4.5;
     const VELOCIDAD_REPOSO = 0.35;
@@ -227,13 +264,13 @@
     }
 
     const paginas = [
-      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55, nota: 392 }] },
-      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55, nota: 330 }, { color: "rojo", x: 50, y: 55, nota: 392 }, { color: "azul", x: 68, y: 55, nota: 494 }] },
-      { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45, nota: 330 }, { color: "rojo", x: 50, y: 45, nota: 392 }, { color: "azul", x: 72, y: 45, nota: 494 }] },
-      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
+      { tipo: "normal", mensaje: "Mueve el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55, nota: 392 }] },
+      { tipo: "huecoInclinacion", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45, nota: 330 }, { color: "rojo", x: 50, y: 45, nota: 392 }, { color: "azul", x: 72, y: 45, nota: 494 }] },
+      { tipo: "billar", mensaje: "¡Haz una carambola!.", puntos: [{ color: "amarillo", x: 30, y: 58, nota: 330 }, { color: "rojo", x: 58, y: 45, nota: 392 }, { color: "azul", x: 70, y: 62, nota: 494 }] },
+      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo. Por último ¡Sopla!", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
       { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
       { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
-      { tipo: "miedo", mensaje: "Acerca el dedo.", puntos: crearPuntosIniciales(14) },
+      { tipo: "miedo", mensaje: "Toca los puntos.", puntos: crearPuntosIniciales(14) },
       { tipo: "curiosidad", mensaje: "Mueve el dedo despacio por la pantalla.", puntos: crearPuntosIniciales(12) },
       { tipo: "salto", mensaje: "Mantén presionado un punto. Ahora, ¡Suéltalo!", puntos: crearPuntosIniciales(8) },
       { tipo: "cadena", mensaje: "Haz saltar un punto.", puntos: crearPuntosIniciales(10) },
@@ -257,6 +294,7 @@
       const h = new Date().getHours();
       const esNoche = h >= 19 || h < 6;
       if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) return esNoche ? "#07111f" : "#fffaf0";
+      if (tipo === "billar" || tipo === "huecoInclinacion") return "#f5fbf1";
       return "#ffffff";
     }
 
@@ -293,8 +331,10 @@
         return;
       }
 
-      if (tipo === "rebote") osc.frequency.value = 180;
+      if (tipo === "caida") osc.frequency.value = 140;
+      else if (tipo === "rebote") osc.frequency.value = 180;
       else osc.frequency.value = 520;
+
       gain.gain.setValueAtTime(tipo === "rebote" ? 0.1 : 0.16, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
       osc.start(t);
@@ -316,13 +356,39 @@
       nivelOscuridad = 0;
       nivelLuzPunto = 0;
       luzAmbiente = 1;
+      bolitasSacadas = 0;
+      carambolaValida = false;
+      bolaActiva = null;
       capaOscura.style.opacity = 0;
       capaOscura.style.zIndex = 8;
       capaLuz.style.opacity = 0;
       capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
+      configurarHueco(pagina.tipo);
 
       pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y, p.nota));
       aplicarColorPorHora();
+    }
+
+    function configurarHueco(tipo) {
+      if (tipo === "billar") {
+        hueco.style.opacity = 1;
+        hueco.style.left = "82%";
+        hueco.style.top = "28%";
+      } else if (tipo === "huecoInclinacion") {
+        hueco.style.opacity = 1;
+        hueco.style.left = "50%";
+        hueco.style.top = "78%";
+      } else {
+        hueco.style.opacity = 0;
+      }
+    }
+
+    function huecoCentro() {
+      return {
+        x: hueco.offsetLeft,
+        y: hueco.offsetTop,
+        r: 48
+      };
     }
 
     function crearPunto(color, xPorcentaje, yPorcentaje, nota = 440) {
@@ -330,18 +396,27 @@
       el.className = `punto ${color}`;
       capaPuntos.appendChild(el);
 
+      const tipo = paginas[paginaActual]?.tipo;
+      let radio = tipo === "brujula" ? 16 : 32;
+      if (tipo === "brujula") {
+        el.style.width = "32px";
+        el.style.height = "32px";
+      }
+
       const objeto = {
         el, color, nota,
         x: (window.innerWidth * xPorcentaje) / 100,
         y: (window.innerHeight * yPorcentaje) / 100,
-        vx: 0, vy: 0, radio: 32,
+        vx: 0, vy: 0, radio,
         ultimoSonido: 0,
         arrastrando: false,
         cargandoLuz: false,
         cargandoSalto: false,
         inicioPresion: 0,
         intervaloLuz: null,
-        ultimoX: 0, ultimoY: 0, ultimoTiempo: 0
+        ultimoX: 0, ultimoY: 0, ultimoTiempo: 0,
+        tocadas: new Set(),
+        sacada: false
       };
 
       el.addEventListener("pointerdown", e => manejarPuntoDown(e, objeto));
@@ -361,8 +436,16 @@
         mensaje.textContent = "Sigue presionando...";
         mensaje.style.color = "white";
         mensaje.style.textShadow = "0 0 8px black";
-        p.intervaloLuz = setInterval(() => iluminarEscenaDesdePunto(0.035, p), 80);
+        p.intervaloLuz = setInterval(() => iluminarEscenaDesdePunto(0.022, p), 95);
         if (navigator.vibrate) navigator.vibrate(35);
+        return;
+      }
+
+      if (tipo === "miedo") {
+        if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+        p.vx += (Math.random() - 0.5) * 30;
+        p.vy += (Math.random() - 0.5) * 30;
+        reproducir("nota", p.nota);
         return;
       }
 
@@ -381,6 +464,7 @@
       p.vx = 0;
       p.vy = 0;
       p.el.setPointerCapture(e.pointerId);
+      bolaActiva = p;
       reproducir("nota", p.nota);
       if (navigator.vibrate) navigator.vibrate(35);
     }
@@ -458,26 +542,28 @@
     function animar() {
       const tipo = paginas[paginaActual].tipo;
       aplicarComportamientoDePagina(tipo);
+      resolverColisiones();
 
       objetos.forEach(p => {
+        if (p.sacada) return;
         if (p.arrastrando || p.cargandoLuz || p.cargandoSalto) {
           p.el.style.left = `${p.x}px`;
           p.el.style.top = `${p.y}px`;
           return;
         }
 
-        const sinGravedad = ["brujula", "luz", "camara", "galaxia", "miedo", "curiosidad"].includes(tipo);
+        const sinGravedad = ["brujula", "luz", "camara", "galaxia", "miedo", "curiosidad", "billar"].includes(tipo);
         if (!sinGravedad) p.vy += 0.08;
         p.x += p.vx;
         p.y += p.vy;
-        p.vx *= 0.94;
-        p.vy *= 0.94;
+        p.vx *= tipo === "billar" ? 0.985 : 0.94;
+        p.vy *= tipo === "billar" ? 0.985 : 0.94;
 
         const minX = p.radio, maxX = window.innerWidth - p.radio;
         const minY = p.radio, maxY = window.innerHeight - p.radio;
-        if (p.x < minX) { const imp = Math.abs(p.vx); p.x = minX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
-        if (p.x > maxX) { const imp = Math.abs(p.vx); p.x = maxX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
-        if (p.y < minY) { const imp = Math.abs(p.vy); p.y = minY; p.vy *= -0.55; sonarImpacto(p, imp, "rebote"); }
+        if (p.x < minX) { const imp = Math.abs(p.vx); p.x = minX; p.vx *= -0.72; sonarImpacto(p, imp, "rebote"); }
+        if (p.x > maxX) { const imp = Math.abs(p.vx); p.x = maxX; p.vx *= -0.72; sonarImpacto(p, imp, "rebote"); }
+        if (p.y < minY) { const imp = Math.abs(p.vy); p.y = minY; p.vy *= -0.72; sonarImpacto(p, imp, "rebote"); }
         if (p.y > maxY) {
           const imp = Math.abs(p.vy);
           p.y = maxY;
@@ -485,6 +571,7 @@
           else { p.vy *= -0.45; sonarImpacto(p, imp, "rebote"); }
         }
 
+        revisarHueco(p);
         if (Math.abs(p.vx) < VELOCIDAD_REPOSO) p.vx = 0;
         if (Math.abs(p.vy) < VELOCIDAD_REPOSO) p.vy = 0;
         p.el.style.left = `${p.x}px`;
@@ -503,6 +590,88 @@
       if (tipo === "ruido") comportamientoRuido();
       if (tipo === "galaxia") comportamientoGalaxia();
       if (tipo === "ejercicio") comportamientoEjercicio();
+      if (tipo === "huecoInclinacion") comportamientoHuecoInclinacion();
+    }
+
+    function resolverColisiones() {
+      const tipo = paginas[paginaActual].tipo;
+      for (let i = 0; i < objetos.length; i++) {
+        for (let j = i + 1; j < objetos.length; j++) {
+          const a = objetos[i], b = objetos[j];
+          if (a.sacada || b.sacada) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.max(0.1, Math.sqrt(dx * dx + dy * dy));
+          const minDist = a.radio + b.radio;
+          if (dist < minDist) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = (minDist - dist) / 2;
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+
+            const tx = -ny;
+            const ty = nx;
+            const dpTanA = a.vx * tx + a.vy * ty;
+            const dpTanB = b.vx * tx + b.vy * ty;
+            const dpNormA = a.vx * nx + a.vy * ny;
+            const dpNormB = b.vx * nx + b.vy * ny;
+            a.vx = tx * dpTanA + nx * dpNormB;
+            a.vy = ty * dpTanA + ny * dpNormB;
+            b.vx = tx * dpTanB + nx * dpNormA;
+            b.vy = ty * dpTanB + ny * dpNormA;
+
+            reproducir("rebote");
+            if (tipo === "billar" && bolaActiva) {
+              bolaActiva.tocadas.add(a === bolaActiva ? b.color : a.color);
+              if (bolaActiva.tocadas.size >= 2) {
+                carambolaValida = true;
+                mensaje.textContent = "¡Carambola! Ahora sácalas por el huequito.";
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function revisarHueco(p) {
+      const tipo = paginas[paginaActual].tipo;
+      if (!(tipo === "billar" || tipo === "huecoInclinacion")) return;
+      const h = huecoCentro();
+      const dx = p.x - h.x;
+      const dy = p.y - h.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+
+      // Página 2: por inclinación, cada bolita puede caer una por una.
+      // Página 3: en billar, solo caen después de una carambola válida.
+      const puedeCaer = tipo === "huecoInclinacion" || carambolaValida;
+      if (puedeCaer && d < h.r) sacarBolita(p);
+    }
+
+    function sacarBolita(p) {
+      if (p.sacada) return;
+      p.sacada = true;
+      p.vx = 0;
+      p.vy = 0;
+      p.el.style.transform = "translate(-50%, -50%) scale(0)";
+      p.el.style.opacity = "0";
+      reproducir("caida");
+      bolitasSacadas++;
+      if (navigator.vibrate) navigator.vibrate(60);
+      const restantes = objetos.filter(o => !o.sacada).length;
+      if (restantes === 0) {
+        mensaje.textContent = "¡Lo lograste!";
+        setTimeout(siguientePagina, 900);
+      }
+    }
+
+    function comportamientoHuecoInclinacion() {
+      objetos.forEach(p => {
+        p.vx += orientacion.gamma * 0.018;
+        p.vy += orientacion.beta * 0.01;
+      });
     }
 
     function comportamientoBrujula() {
@@ -511,22 +680,16 @@
       const angulo = ((360 - norte) * Math.PI) / 180;
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2 + 30;
-      const forma = [
-        [0,-210], [-42,-150], [0,-170], [42,-150],
-        [0,-120], [0,-85], [0,-50], [0,-15], [0,20],
-        [-58,60], [-29,60], [0,60], [29,60], [58,60],
-        [-42,100], [-14,100], [14,100], [42,100],
-        [-24,140], [0,140], [24,140]
-      ];
+      const forma = [[0,-190],[-34,-135],[0,-155],[34,-135],[0,-105],[0,-70],[0,-35],[0,0],[0,35],[-48,70],[-24,70],[0,70],[24,70],[48,70],[-32,105],[0,105],[32,105],[-20,140],[0,140],[20,140],[0,170]];
       objetos.forEach((p, i) => {
         const punto = forma[i % forma.length];
         const lx = punto[0], ly = punto[1];
         const tx = cx + lx * Math.cos(angulo) - ly * Math.sin(angulo);
         const ty = cy + lx * Math.sin(angulo) + ly * Math.cos(angulo);
-        p.vx += (tx - p.x) * 0.03;
-        p.vy += (ty - p.y) * 0.03;
+        p.vx += (tx - p.x) * 0.04;
+        p.vy += (ty - p.y) * 0.04;
         p.el.style.background = paleta[i % paleta.length];
-        p.el.style.boxShadow = `0 0 24px ${paleta[i % paleta.length]}aa`;
+        p.el.style.boxShadow = `0 0 20px ${paleta[i % paleta.length]}aa`;
       });
     }
 
@@ -545,13 +708,14 @@
     }
 
     function comportamientoMiedo() {
-      if (!puntero.activo) return;
+      const objetivo = puntero.activo ? puntero : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       objetos.forEach(p => {
-        const dx = p.x - puntero.x, dy = p.y - puntero.y;
+        const dx = p.x - objetivo.x;
+        const dy = p.y - objetivo.y;
         const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-        if (d < 190) {
-          p.vx += (dx / d) * 2.2;
-          p.vy += (dy / d) * 2.2;
+        if (puntero.activo && d < 230) {
+          p.vx += (dx / d) * 3.2;
+          p.vy += (dy / d) * 3.2;
         }
       });
     }
@@ -611,7 +775,7 @@
       if (impacto < VELOCIDAD_MINIMA_SONIDO) return;
       if (ahora - p.ultimoSonido < 260) return;
       p.ultimoSonido = ahora;
-      reproducir(tipo);
+      reproducir(tipo, p.nota);
     }
 
     function siguientePagina() {
@@ -631,10 +795,7 @@
     }
 
     capaPuntos.addEventListener("dblclick", siguientePagina);
-
-    window.addEventListener("touchstart", e => {
-      if (e.touches.length === 2) paginaAnterior();
-    });
+    window.addEventListener("touchstart", e => { if (e.touches.length === 2) paginaAnterior(); });
 
     function activarExplosionOscura() {
       if (explosionRealizada) return;
@@ -664,8 +825,8 @@
         crearPunto("amarillo", 50, 35, 392);
         const punto = objetos[0];
         punto.el.style.opacity = "1";
-        punto.el.style.zIndex = "30";
-        punto.el.style.boxShadow = "0 0 44px rgba(255, 213, 30, 0.95)";
+        punto.el.style.zIndex = "60";
+        punto.el.style.boxShadow = "0 0 60px rgba(255, 213, 30, 1)";
         mensaje.textContent = "Mantén presionado el punto amarillo.";
       }, 2200);
     }
@@ -678,10 +839,11 @@
       if (punto) {
         capaLuz.style.left = `${punto.x}px`;
         capaLuz.style.top = `${punto.y}px`;
-        capaLuz.style.opacity = String(Math.min(1, 0.25 + nivelLuzPunto));
-        capaLuz.style.transform = `translate(-50%, -50%) scale(${0.4 + nivelLuzPunto * 18})`;
-        punto.el.style.zIndex = "30";
-        punto.el.style.boxShadow = `0 0 ${40 + nivelLuzPunto * 140}px rgba(255, 213, 30, 1)`;
+        capaLuz.style.opacity = String(Math.min(1, 0.2 + nivelLuzPunto));
+        capaLuz.style.transform = `translate(-50%, -50%) scale(${0.35 + nivelLuzPunto * 22})`;
+        punto.el.style.zIndex = "60";
+        punto.el.style.transform = `translate(-50%, -50%) scale(${1 + nivelLuzPunto * 1.3})`;
+        punto.el.style.boxShadow = `0 0 ${60 + nivelLuzPunto * 180}px rgba(255, 213, 30, 1)`;
       }
 
       capaOscura.style.opacity = nivelOscuridad;
@@ -696,7 +858,7 @@
         capaPuntos.innerHTML = "";
         objetos = [];
         crearPunto("amarillo", puntoX, puntoY, 392);
-        objetos[0].el.style.zIndex = "30";
+        objetos[0].el.style.zIndex = "60";
         objetos[0].el.style.boxShadow = "0 0 45px rgba(255, 213, 30, 0.95)";
         mensaje.textContent = "Sóplalo.";
       }
@@ -765,10 +927,7 @@
         ultimoShake = ahora;
         const tipo = paginas[paginaActual].tipo;
 
-        if (tipo === "explosionOscura") {
-          activarExplosionOscura();
-          return;
-        }
+        if (tipo === "explosionOscura") { activarExplosionOscura(); return; }
 
         if (tipo === "ejercicio") {
           mensaje.textContent = "¡Sigue moviéndote!";
@@ -799,7 +958,6 @@
       if (paginas[paginaActual].tipo === "camara" && !camaraActiva) activarCamara();
       puntero = { x: e.clientX, y: e.clientY, activo: true };
       inicioToqueY = e.clientY;
-
       if (paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
         clearInterval(intervaloOscuridadManual);
         intervaloOscuridadManual = setInterval(() => {
@@ -860,34 +1018,22 @@
       canvasCamara.height = h;
       ctxCamara.drawImage(videoCamara, 0, 0, w, h);
       const img = ctxCamara.getImageData(0, 0, w, h).data;
-
-      if (!frameAnterior) {
-        frameAnterior = new Uint8ClampedArray(img);
-        return;
-      }
+      if (!frameAnterior) { frameAnterior = new Uint8ClampedArray(img); return; }
 
       let suma = 0, mx = 0, my = 0, cuenta = 0;
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const idx = (y * w + x) * 4;
           const diff = Math.abs(img[idx] - frameAnterior[idx]) + Math.abs(img[idx+1] - frameAnterior[idx+1]) + Math.abs(img[idx+2] - frameAnterior[idx+2]);
-          if (diff > 55) {
-            suma += diff;
-            mx += x;
-            my += y;
-            cuenta++;
-          }
+          if (diff > 55) { suma += diff; mx += x; my += y; cuenta++; }
         }
       }
       frameAnterior = new Uint8ClampedArray(img);
-
       if (cuenta > 8) {
         movimientoCamara.x = (mx / cuenta - w / 2) / (w / 2);
         movimientoCamara.y = (my / cuenta - h / 2) / (h / 2);
         movimientoCamara.fuerza = Math.min(1, suma / 90000);
-      } else {
-        movimientoCamara.fuerza *= 0.92;
-      }
+      } else movimientoCamara.fuerza *= 0.92;
     }
 
     async function activarMicrofono() {
@@ -900,9 +1046,7 @@
         fuente.connect(analizadorAudio);
         microfonoActivo = true;
         detectarSonido();
-      } catch (error) {
-        microfonoActivo = false;
-      }
+      } catch (error) { microfonoActivo = false; }
     }
 
     function detectarSonido() {
@@ -916,13 +1060,7 @@
 
       if (volumen > 28 && ahora - ultimoSoplo > 450) {
         ultimoSoplo = ahora;
-
-        if (apagarEscenaPorSoplo()) {
-          setTimeout(siguientePagina, 650);
-          requestAnimationFrame(detectarSonido);
-          return;
-        }
-
+        if (apagarEscenaPorSoplo()) { setTimeout(siguientePagina, 650); requestAnimationFrame(detectarSonido); return; }
         if (tipo === "respiracion") {
           objetos.forEach(p => {
             p.vx += (Math.random() - 0.5) * (volumen > 45 ? 20 : 5);
@@ -930,7 +1068,6 @@
           });
           if (volumen > 45) reproducir("explosion");
         }
-
         if (tipo === "ruido") {
           objetos.forEach(p => {
             p.vx += (Math.random() - 0.5) * 14;
@@ -951,20 +1088,16 @@
           });
           sensor.start();
         }
-      } catch (error) {
-        sensorLuzDisponible = false;
-      }
+      } catch (error) { sensorLuzDisponible = false; }
     }
 
     async function pedirPermisos() {
       iniciarAudio();
       reproducir("pop");
-
       try {
         if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") await DeviceMotionEvent.requestPermission();
         if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") await DeviceOrientationEvent.requestPermission();
       } catch (error) {}
-
       activarMicrofono();
       activarSensorLuz();
       sensoresActivos = true;
