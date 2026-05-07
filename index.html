@@ -24,10 +24,6 @@
       background: white;
     }
 
-    #paginaFondo {
-      display: none;
-    }
-
     #fondoColor {
       position: absolute;
       inset: 0;
@@ -102,7 +98,6 @@
     .amarillo { background: #ffd51e; }
     .rojo { background: #ef3d35; }
     .azul { background: #45bde8; }
-    .blanco { background: #ffffff; border: 2px solid #ddd; }
 
     .punto.explota { animation: explotarPunto 1.1s ease-out forwards; }
 
@@ -123,26 +118,23 @@
       position: absolute;
       left: 50%;
       top: max(18px, env(safe-area-inset-top));
-      bottom: auto;
       transform: translateX(-50%);
       z-index: 18;
-      background: rgba(255,255,255,0.92);
-      padding: 10px 16px;
-      border-radius: 18px;
-      font-size: clamp(15px, 3.8vw, 20px);
-      line-height: 1.25;
+      font-size: clamp(18px, 4.2vw, 28px);
+      line-height: 1.18;
       color: #111;
       pointer-events: none;
       text-align: center;
       width: min(92vw, 680px);
-      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
+      font-weight: 700;
+      text-shadow: 0 1px 0 white, 0 0 10px white;
     }
 
     #panelInicio {
       position: absolute;
       inset: 0;
-      z-index: 20;
-      background: rgba(255,255,255,0.94);
+      z-index: 50;
+      background: white;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -165,7 +157,6 @@
   <main id="libro">
     <div id="fondoColor"></div>
     <video id="videoCamara" autoplay playsinline muted></video>
-    <img id="paginaFondo" src="" alt="" />
     <div id="capaPuntos"></div>
     <div id="capaOscura"></div>
     <div id="capaLuz"></div>
@@ -181,7 +172,6 @@
   </main>
 
   <script>
-    const paginaFondo = document.getElementById("paginaFondo");
     const fondoColor = document.getElementById("fondoColor");
     const videoCamara = document.getElementById("videoCamara");
     const capaPuntos = document.getElementById("capaPuntos");
@@ -210,17 +200,36 @@
     let luzAmbiente = 1;
     let sensorLuzDisponible = false;
     let camaraActiva = false;
-    let camaraLista = false;
-    let movimientoCamara = { x: 0, y: 0 };
+    let streamCamara = null;
+    let canvasCamara = document.createElement("canvas");
+    let ctxCamara = canvasCamara.getContext("2d", { willReadFrequently: true });
+    let frameAnterior = null;
+    let movimientoCamara = { x: 0, y: 0, fuerza: 0 };
+    let intervaloOscuridadManual = null;
 
     const VELOCIDAD_MINIMA_SONIDO = 4.5;
     const VELOCIDAD_REPOSO = 0.35;
-    const TIEMPO_ENTRE_CAMBIO_PAGINA = 1200;
+    const TIEMPO_ENTRE_CAMBIO_PAGINA = 900;
+    const notas = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25, 587.33, 659.25];
+
+    function crearPuntosIniciales(cantidad) {
+      const colores = ["amarillo", "rojo", "azul"];
+      const lista = [];
+      for (let i = 0; i < cantidad; i++) {
+        lista.push({
+          color: colores[i % colores.length],
+          x: 22 + Math.random() * 56,
+          y: 25 + Math.random() * 52,
+          nota: notas[i % notas.length]
+        });
+      }
+      return lista;
+    }
 
     const paginas = [
-      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55 }] },
-      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55 }, { color: "rojo", x: 50, y: 55 }, { color: "azul", x: 68, y: 55 }] },
-      { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 72, y: 45 }] },
+      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55, nota: 392 }] },
+      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 32, y: 55, nota: 330 }, { color: "rojo", x: 50, y: 55, nota: 392 }, { color: "azul", x: 68, y: 55, nota: 494 }] },
+      { tipo: "normal", mensaje: "Inclina el celular.", puntos: [{ color: "amarillo", x: 28, y: 45, nota: 330 }, { color: "rojo", x: 50, y: 45, nota: 392 }, { color: "azul", x: 72, y: 45, nota: 494 }] },
       { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
       { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
       { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
@@ -236,34 +245,18 @@
       { tipo: "ejercicio", mensaje: "¡Salta o camina con el celular!", puntos: crearPuntosIniciales(20) }
     ];
 
-    function crearPuntosIniciales(cantidad) {
-      const colores = ["amarillo", "rojo", "azul"];
-      const lista = [];
-      for (let i = 0; i < cantidad; i++) {
-        lista.push({
-          color: colores[i % colores.length],
-          x: 20 + Math.random() * 60,
-          y: 25 + Math.random() * 50
-        });
-      }
-      return lista;
-    }
-
     function paletaPorHora() {
       const h = new Date().getHours();
-      // En la noche y madrugada: fríos. Durante el día: cálidos.
-      if (h >= 6 && h < 12) return ["#ffd166", "#ffb703", "#fb8500"];      // mañana cálida
-      if (h >= 12 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];     // tarde cálida intensa
-      if (h >= 17 && h < 19) return ["#f15bb5", "#fee440", "#f9844a"];     // atardecer
-      return ["#00bbf9", "#4361ee", "#7209b7", "#3a0ca3", "#023e8a"];    // noche/madrugada fría
+      if (h >= 6 && h < 12) return ["#ffd166", "#ffb703", "#fb8500"];
+      if (h >= 12 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];
+      if (h >= 17 && h < 19) return ["#f15bb5", "#fee440", "#f9844a"];
+      return ["#00bbf9", "#4361ee", "#7209b7", "#3a0ca3", "#023e8a"];
     }
 
     function colorFondoPorPagina(tipo) {
       const h = new Date().getHours();
       const esNoche = h >= 19 || h < 6;
-      if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) {
-        return esNoche ? "#07111f" : "#fffaf0";
-      }
+      if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) return esNoche ? "#07111f" : "#fffaf0";
       return "#ffffff";
     }
 
@@ -272,84 +265,83 @@
       if (audioContext.state === "suspended") audioContext.resume();
     }
 
-    function reproducir(tipo = "pop") {
+    function reproducir(tipo = "pop", frecuencia = 420) {
       if (!audioContext) return;
       const t = audioContext.currentTime;
-      const duracion = tipo === "explosion" ? 0.75 : tipo === "caida" ? 0.08 : 0.05;
-      const bufferSize = audioContext.sampleRate * duracion;
-      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-      const data = buffer.getChannelData(0);
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.type = tipo === "explosion" ? "sawtooth" : "sine";
 
-      for (let i = 0; i < bufferSize; i++) {
-        const fade = 1 - i / bufferSize;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(fade, tipo === "explosion" ? 2.5 : 2);
+      if (tipo === "nota") {
+        osc.frequency.value = frecuencia;
+        gain.gain.setValueAtTime(0.22, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+        osc.start(t);
+        osc.stop(t + 0.28);
+        return;
       }
 
-      const ruido = audioContext.createBufferSource();
-      ruido.buffer = buffer;
-      const filtro = audioContext.createBiquadFilter();
-      filtro.type = "lowpass";
-      const gain = audioContext.createGain();
+      if (tipo === "explosion") {
+        osc.frequency.setValueAtTime(120, t);
+        osc.frequency.exponentialRampToValueAtTime(38, t + 0.28);
+        gain.gain.setValueAtTime(0.28, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.32);
+        return;
+      }
 
-      if (tipo === "pop") { filtro.frequency.value = 900; gain.gain.value = 0.18; }
-      if (tipo === "rebote") { filtro.frequency.value = 550; gain.gain.value = 0.13; }
-      if (tipo === "caida") { filtro.frequency.value = 260; gain.gain.value = 0.15; }
-      if (tipo === "explosion") { filtro.frequency.setValueAtTime(1200, t); filtro.frequency.exponentialRampToValueAtTime(90, t + duracion); gain.gain.value = 0.55; }
-
-      gain.gain.exponentialRampToValueAtTime(0.001, t + duracion);
-      ruido.connect(filtro);
-      filtro.connect(gain);
-      gain.connect(audioContext.destination);
-      ruido.start(t);
-      ruido.stop(t + duracion);
+      if (tipo === "rebote") osc.frequency.value = 180;
+      else osc.frequency.value = 520;
+      gain.gain.setValueAtTime(tipo === "rebote" ? 0.1 : 0.16, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.start(t);
+      osc.stop(t + 0.09);
     }
 
     function cargarPagina(indice) {
+      apagarCamara();
       paginaActual = indice;
       const pagina = paginas[paginaActual];
-      paginaFondo.src = "";
-      videoCamara.style.opacity = 0;
-      camaraActiva = false;
       mensaje.textContent = pagina.mensaje;
+      mensaje.style.color = "#111";
+      mensaje.style.textShadow = "0 1px 0 white, 0 0 10px white";
       fondoColor.style.background = colorFondoPorPagina(pagina.tipo);
+      fondoColor.style.filter = "none";
       capaPuntos.innerHTML = "";
       objetos = [];
       explosionRealizada = false;
       nivelOscuridad = 0;
-      capaOscura.style.opacity = 0;
-      capaOscura.style.transition = "opacity 0.5s ease";
       nivelLuzPunto = 0;
+      luzAmbiente = 1;
+      capaOscura.style.opacity = 0;
+      capaOscura.style.zIndex = 8;
       capaLuz.style.opacity = 0;
       capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
-      fondoColor.style.filter = "none";
 
-      pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y));
+      pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y, p.nota));
       aplicarColorPorHora();
     }
 
-    function crearPunto(color, xPorcentaje, yPorcentaje) {
+    function crearPunto(color, xPorcentaje, yPorcentaje, nota = 440) {
       const el = document.createElement("div");
       el.className = `punto ${color}`;
       capaPuntos.appendChild(el);
 
       const objeto = {
-        el,
-        color,
+        el, color, nota,
         x: (window.innerWidth * xPorcentaje) / 100,
         y: (window.innerHeight * yPorcentaje) / 100,
-        vx: 0,
-        vy: 0,
-        radio: 32,
+        vx: 0, vy: 0, radio: 32,
         ultimoSonido: 0,
         arrastrando: false,
         cargandoLuz: false,
         cargandoSalto: false,
         inicioPresion: 0,
         intervaloLuz: null,
-        ultimoX: 0,
-        ultimoY: 0,
-        ultimoTiempo: 0,
-        estado: "normal"
+        ultimoX: 0, ultimoY: 0, ultimoTiempo: 0
       };
 
       el.addEventListener("pointerdown", e => manejarPuntoDown(e, objeto));
@@ -366,10 +358,10 @@
         p.cargandoLuz = true;
         p.arrastrando = false;
         p.el.setPointerCapture(e.pointerId);
-        mensaje.textContent = "Sigue presionando... la luz está volviendo.";
-        p.intervaloLuz = setInterval(() => {
-          iluminarEscenaDesdePunto(0.035, p);
-        }, 80);
+        mensaje.textContent = "Sigue presionando...";
+        mensaje.style.color = "white";
+        mensaje.style.textShadow = "0 0 8px black";
+        p.intervaloLuz = setInterval(() => iluminarEscenaDesdePunto(0.035, p), 80);
         if (navigator.vibrate) navigator.vibrate(35);
         return;
       }
@@ -389,7 +381,7 @@
       p.vx = 0;
       p.vy = 0;
       p.el.setPointerCapture(e.pointerId);
-      reproducir("pop");
+      reproducir("nota", p.nota);
       if (navigator.vibrate) navigator.vibrate(35);
     }
 
@@ -412,8 +404,7 @@
         p.cargandoLuz = false;
         clearInterval(p.intervaloLuz);
         p.intervaloLuz = null;
-        p.el.releasePointerCapture(e.pointerId);
-        mensaje.textContent = nivelOscuridad <= 0.05 ? "La luz volvió. Ahora sóplalo para apagar la página." : "Mantén presionado un poco más.";
+        try { p.el.releasePointerCapture(e.pointerId); } catch {}
         return;
       }
 
@@ -422,7 +413,7 @@
         const duracion = Date.now() - p.inicioPresion;
         p.cargandoSalto = false;
         p.el.classList.remove("palpita");
-        p.el.releasePointerCapture(e.pointerId);
+        try { p.el.releasePointerCapture(e.pointerId); } catch {}
 
         if (tipo === "explotaPresion" && duracion > 1600) {
           explotarPuntoIndividual(p);
@@ -432,7 +423,7 @@
         const fuerza = Math.min(24, 7 + duracion / 90);
         p.vy -= fuerza;
         p.vx += (Math.random() - 0.5) * 8;
-        reproducir("pop");
+        reproducir("nota", p.nota);
 
         if (tipo === "cadena") saltoEnCadena();
         if (tipo === "salto" && fuerza > 18) siguientePagina();
@@ -456,10 +447,10 @@
     function aplicarColorPorHora() {
       const paleta = paletaPorHora();
       const tipo = paginas[paginaActual].tipo;
-      if (["brujula", "luz", "ruido", "respiracion", "galaxia"].includes(tipo)) {
+      if (["brujula", "luz", "ruido", "respiracion", "galaxia", "camara", "ejercicio"].includes(tipo)) {
         objetos.forEach((p, i) => {
           p.el.style.background = paleta[i % paleta.length];
-          p.el.style.boxShadow = `0 0 14px ${paleta[i % paleta.length]}55`;
+          p.el.style.boxShadow = `0 0 18px ${paleta[i % paleta.length]}88`;
         });
       }
     }
@@ -475,17 +466,15 @@
           return;
         }
 
-        p.vy += tipo === "galaxia" ? 0 : 0.08;
+        const sinGravedad = ["brujula", "luz", "camara", "galaxia", "miedo", "curiosidad"].includes(tipo);
+        if (!sinGravedad) p.vy += 0.08;
         p.x += p.vx;
         p.y += p.vy;
         p.vx *= 0.94;
         p.vy *= 0.94;
 
-        const minX = p.radio;
-        const maxX = window.innerWidth - p.radio;
-        const minY = p.radio;
-        const maxY = window.innerHeight - p.radio;
-
+        const minX = p.radio, maxX = window.innerWidth - p.radio;
+        const minY = p.radio, maxY = window.innerHeight - p.radio;
         if (p.x < minX) { const imp = Math.abs(p.vx); p.x = minX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
         if (p.x > maxX) { const imp = Math.abs(p.vx); p.x = maxX; p.vx *= -0.55; sonarImpacto(p, imp, "rebote"); }
         if (p.y < minY) { const imp = Math.abs(p.vy); p.y = minY; p.vy *= -0.55; sonarImpacto(p, imp, "rebote"); }
@@ -493,15 +482,11 @@
           const imp = Math.abs(p.vy);
           p.y = maxY;
           if (imp < VELOCIDAD_MINIMA_SONIDO) { p.vy = 0; p.vx *= 0.82; }
-          else { p.vy *= -0.45; sonarImpacto(p, imp, "caida"); }
+          else { p.vy *= -0.45; sonarImpacto(p, imp, "rebote"); }
         }
 
         if (Math.abs(p.vx) < VELOCIDAD_REPOSO) p.vx = 0;
         if (Math.abs(p.vy) < VELOCIDAD_REPOSO) p.vy = 0;
-        if (p.y >= maxY - 1 && Math.abs(p.vx) < VELOCIDAD_REPOSO * 2 && Math.abs(p.vy) < VELOCIDAD_REPOSO * 2) {
-          p.y = maxY; p.vx = 0; p.vy = 0;
-        }
-
         p.el.style.left = `${p.x}px`;
         p.el.style.top = `${p.y}px`;
       });
@@ -510,7 +495,6 @@
     }
 
     function aplicarComportamientoDePagina(tipo) {
-      if (tipo === "ejercicio") comportamientoEjercicio();
       if (tipo === "brujula") comportamientoBrujula();
       if (tipo === "camara") comportamientoCamara();
       if (tipo === "luz") comportamientoLuz();
@@ -518,66 +502,56 @@
       if (tipo === "curiosidad") comportamientoCuriosidad();
       if (tipo === "ruido") comportamientoRuido();
       if (tipo === "galaxia") comportamientoGalaxia();
+      if (tipo === "ejercicio") comportamientoEjercicio();
     }
 
     function comportamientoBrujula() {
       const paleta = paletaPorHora();
       const norte = orientacion.alpha || 0;
       const angulo = ((360 - norte) * Math.PI) / 180;
-      const centroX = window.innerWidth / 2;
-      const centroY = window.innerHeight / 2 + 25;
-
-      // Forma de flecha: punta, cuerpo y cola. Luego se rota hacia el norte.
-      const formaFlecha = [
-        [0, -190],
-        [-35, -130], [0, -145], [35, -130],
-        [0, -95],
-        [0, -55],
-        [0, -15],
-        [0, 25],
-        [-55, 65], [-25, 65], [0, 65], [25, 65], [55, 65],
-        [-42, 105], [-14, 105], [14, 105], [42, 105],
-        [-28, 145], [0, 145], [28, 145],
-        [0, 180]
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2 + 30;
+      const forma = [
+        [0,-210], [-42,-150], [0,-170], [42,-150],
+        [0,-120], [0,-85], [0,-50], [0,-15], [0,20],
+        [-58,60], [-29,60], [0,60], [29,60], [58,60],
+        [-42,100], [-14,100], [14,100], [42,100],
+        [-24,140], [0,140], [24,140]
       ];
-
       objetos.forEach((p, i) => {
-        const punto = formaFlecha[i % formaFlecha.length];
-        const localX = punto[0];
-        const localY = punto[1];
-        const tx = centroX + localX * Math.cos(angulo) - localY * Math.sin(angulo);
-        const ty = centroY + localX * Math.sin(angulo) + localY * Math.cos(angulo);
-
-        p.vx += (tx - p.x) * 0.012;
-        p.vy += (ty - p.y) * 0.012;
+        const punto = forma[i % forma.length];
+        const lx = punto[0], ly = punto[1];
+        const tx = cx + lx * Math.cos(angulo) - ly * Math.sin(angulo);
+        const ty = cy + lx * Math.sin(angulo) + ly * Math.cos(angulo);
+        p.vx += (tx - p.x) * 0.03;
+        p.vy += (ty - p.y) * 0.03;
         p.el.style.background = paleta[i % paleta.length];
-        p.el.style.boxShadow = `0 0 22px ${paleta[i % paleta.length]}99`;
+        p.el.style.boxShadow = `0 0 24px ${paleta[i % paleta.length]}aa`;
       });
     }
 
     function comportamientoLuz() {
-      const claridad = Math.max(0, Math.min(1, luzAmbiente));
-      fondoColor.style.filter = `brightness(${0.45 + claridad * 0.75})`;
-      capaOscura.style.opacity = 1 - claridad;
+      const c = Math.max(0, Math.min(1, luzAmbiente));
+      capaOscura.style.opacity = 1 - c;
+      fondoColor.style.background = c > 0.5 ? "#fff8e8" : "#061225";
       objetos.forEach((p, i) => {
-        const paleta = claridad > 0.5 ? ["#ffd166", "#fb8500", "#ffb703"] : ["#4361ee", "#3a0ca3", "#00bbf9"];
+        const paleta = c > 0.5 ? ["#ffd166", "#fb8500", "#ffb703"] : ["#00bbf9", "#4361ee", "#7209b7"];
         p.el.style.background = paleta[i % paleta.length];
-        const centroX = window.innerWidth / 2;
-        const centroY = window.innerHeight / 2;
-        p.vx += (centroX - p.x) * (claridad < 0.4 ? 0.002 : -0.0008);
-        p.vy += (centroY - p.y) * (claridad < 0.4 ? 0.002 : -0.0008);
+        const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        const fuerza = c < 0.45 ? 0.006 : -0.002;
+        p.vx += (cx - p.x) * fuerza;
+        p.vy += (cy - p.y) * fuerza;
       });
     }
 
     function comportamientoMiedo() {
       if (!puntero.activo) return;
       objetos.forEach(p => {
-        const dx = p.x - puntero.x;
-        const dy = p.y - puntero.y;
+        const dx = p.x - puntero.x, dy = p.y - puntero.y;
         const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-        if (d < 170) {
-          p.vx += (dx / d) * 1.7;
-          p.vy += (dy / d) * 1.7;
+        if (d < 190) {
+          p.vx += (dx / d) * 2.2;
+          p.vy += (dy / d) * 2.2;
         }
       });
     }
@@ -587,13 +561,12 @@
       objetos.forEach((p, i) => {
         const tx = puntero.x + Math.sin(Date.now() / 300 + i) * 45;
         const ty = puntero.y + Math.cos(Date.now() / 300 + i) * 45;
-        p.vx += (tx - p.x) * 0.006;
-        p.vy += (ty - p.y) * 0.006;
+        p.vx += (tx - p.x) * 0.012;
+        p.vy += (ty - p.y) * 0.012;
       });
     }
 
     function comportamientoRuido() {
-      // Se alimenta desde el micrófono. En silencio, los puntos vuelven al centro.
       objetos.forEach((p, i) => {
         const tx = window.innerWidth * (0.35 + (i % 5) * 0.075);
         const ty = window.innerHeight * (0.35 + Math.floor(i / 5) * 0.1);
@@ -603,14 +576,12 @@
     }
 
     function comportamientoGalaxia() {
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-      objetos.forEach((p, i) => {
-        const dx = p.x - cx;
-        const dy = p.y - cy;
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+      objetos.forEach(p => {
+        const dx = p.x - cx, dy = p.y - cy;
         const d = Math.max(30, Math.sqrt(dx * dx + dy * dy));
-        p.vx += (-dy / d) * 0.35 + (cx - p.x) * 0.0008;
-        p.vy += (dx / d) * 0.35 + (cy - p.y) * 0.0008;
+        p.vx += (-dy / d) * 0.45 + (cx - p.x) * 0.0012;
+        p.vy += (dx / d) * 0.45 + (cy - p.y) * 0.0012;
         p.el.style.width = "18px";
         p.el.style.height = "18px";
         p.radio = 9;
@@ -619,21 +590,20 @@
 
     function comportamientoCamara() {
       if (!camaraActiva) return;
+      detectarMovimientoCamara();
       objetos.forEach((p, i) => {
-        const tx = window.innerWidth / 2 + movimientoCamara.x * 180 + Math.sin(Date.now() / 400 + i) * 90;
-        const ty = window.innerHeight / 2 + movimientoCamara.y * 180 + Math.cos(Date.now() / 400 + i) * 90;
-        p.vx += (tx - p.x) * 0.006;
-        p.vy += (ty - p.y) * 0.006;
+        const tx = window.innerWidth / 2 + movimientoCamara.x * window.innerWidth * 0.7 + Math.sin(Date.now() / 350 + i) * 70;
+        const ty = window.innerHeight / 2 + movimientoCamara.y * window.innerHeight * 0.7 + Math.cos(Date.now() / 350 + i) * 70;
+        p.vx += (tx - p.x) * 0.012 * Math.max(0.5, movimientoCamara.fuerza * 8);
+        p.vy += (ty - p.y) * 0.012 * Math.max(0.5, movimientoCamara.fuerza * 8);
       });
     }
 
     function comportamientoEjercicio() {
       objetos.forEach((p, i) => {
-        const onda = Math.sin(Date.now() / 220 + i);
-        p.vy += onda * 0.12;
+        p.vy += Math.sin(Date.now() / 220 + i) * 0.12;
         p.vx += Math.cos(Date.now() / 260 + i) * 0.04;
       });
-    });
     }
 
     function sonarImpacto(p, impacto, tipo) {
@@ -648,8 +618,7 @@
       const ahora = Date.now();
       if (ahora - ultimoCambioPagina < TIEMPO_ENTRE_CAMBIO_PAGINA) return;
       ultimoCambioPagina = ahora;
-      const nueva = (paginaActual + 1) % paginas.length;
-      cargarPagina(nueva);
+      cargarPagina((paginaActual + 1) % paginas.length);
       reproducir("pop");
     }
 
@@ -657,101 +626,79 @@
       const ahora = Date.now();
       if (ahora - ultimoCambioPagina < TIEMPO_ENTRE_CAMBIO_PAGINA) return;
       ultimoCambioPagina = ahora;
-      const anterior = (paginaActual - 1 + paginas.length) % paginas.length;
-      cargarPagina(anterior);
+      cargarPagina((paginaActual - 1 + paginas.length) % paginas.length);
       reproducir("rebote");
     }
 
     capaPuntos.addEventListener("dblclick", siguientePagina);
 
-    // Dos dedos = volver atrás.
     window.addEventListener("touchstart", e => {
       if (e.touches.length === 2) paginaAnterior();
     });
 
     function activarExplosionOscura() {
+      if (explosionRealizada) return;
       explosionRealizada = true;
-      mensaje.textContent = "¡BOOM! Los puntos explotaron.";
+      mensaje.textContent = "¡BOOM!";
       reproducir("explosion");
       if (navigator.vibrate) navigator.vibrate([120, 60, 180, 80, 250]);
 
-      objetos.forEach(p => {
-        p.el.classList.add("explota");
-        p.vx += (Math.random() - 0.5) * 38;
-        p.vy += (Math.random() - 0.5) * 38;
-      });
-
-      const colores = ["amarillo", "rojo", "azul"];
+      objetos.forEach(p => p.el.classList.add("explota"));
       for (let i = 0; i < 60; i++) {
-        crearPunto(colores[Math.floor(Math.random() * colores.length)], Math.random() * 100, Math.random() * 100);
+        const colores = ["amarillo", "rojo", "azul"];
+        crearPunto(colores[Math.floor(Math.random() * colores.length)], Math.random() * 100, Math.random() * 100, notas[i % notas.length]);
         const nuevo = objetos[objetos.length - 1];
         nuevo.el.style.width = "42px";
         nuevo.el.style.height = "42px";
         nuevo.el.classList.add("explota");
-        nuevo.vx = (Math.random() - 0.5) * 45;
-        nuevo.vy = (Math.random() - 0.5) * 45;
       }
 
       setTimeout(() => {
-        capaOscura.style.transition = "opacity 2.2s ease";
-        nivelOscuridad = 1;
         capaOscura.style.opacity = 1;
+        nivelOscuridad = 1;
       }, 700);
 
       setTimeout(() => {
         capaPuntos.innerHTML = "";
         objetos = [];
-        crearPunto("amarillo", 50, 38);
-        objetos[0].el.style.opacity = "1";
-        objetos[0].el.style.boxShadow = "0 0 24px rgba(255, 213, 30, 0.9)";
-        mensaje.textContent = "Mantén presionado el punto amarillo para encender la luz.";
+        crearPunto("amarillo", 50, 35, 392);
+        const punto = objetos[0];
+        punto.el.style.opacity = "1";
+        punto.el.style.zIndex = "30";
+        punto.el.style.boxShadow = "0 0 44px rgba(255, 213, 30, 0.95)";
+        mensaje.textContent = "Mantén presionado el punto amarillo.";
       }, 2200);
-    }
-
-    function iluminarEscena(cantidad) {
-      iluminarEscenaDesdePunto(cantidad, objetos[0]);
     }
 
     function iluminarEscenaDesdePunto(cantidad, punto) {
       if (paginas[paginaActual].tipo !== "explosionOscura" || !explosionRealizada) return;
-
       nivelLuzPunto = Math.min(1, nivelLuzPunto + cantidad);
       nivelOscuridad = Math.max(0, 1 - nivelLuzPunto);
 
       if (punto) {
-        const x = punto.x;
-        const y = punto.y;
-        capaLuz.style.left = `${x}px`;
-        capaLuz.style.top = `${y}px`;
+        capaLuz.style.left = `${punto.x}px`;
+        capaLuz.style.top = `${punto.y}px`;
         capaLuz.style.opacity = String(Math.min(1, 0.25 + nivelLuzPunto));
         capaLuz.style.transform = `translate(-50%, -50%) scale(${0.4 + nivelLuzPunto * 18})`;
-
-        punto.el.style.opacity = "1";
         punto.el.style.zIndex = "30";
-        punto.el.style.transform = `translate(-50%, -50%) scale(${1 + nivelLuzPunto * 1.25})`;
         punto.el.style.boxShadow = `0 0 ${40 + nivelLuzPunto * 140}px rgba(255, 213, 30, 1)`;
       }
 
       capaOscura.style.opacity = nivelOscuridad;
 
       if (nivelLuzPunto >= 1) {
-        nivelLuzPunto = 1;
-        nivelOscuridad = 0;
         capaOscura.style.opacity = 0;
         capaLuz.style.opacity = 0;
         capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
         fondoColor.style.background = "#ffffff";
-
-        // Al terminar de iluminar, queda únicamente el puntito amarillo.
         const puntoX = punto ? (punto.x / window.innerWidth) * 100 : 50;
-        const puntoY = punto ? (punto.y / window.innerHeight) * 100 : 38;
+        const puntoY = punto ? (punto.y / window.innerHeight) * 100 : 35;
         capaPuntos.innerHTML = "";
         objetos = [];
-        crearPunto("amarillo", puntoX, puntoY);
+        crearPunto("amarillo", puntoX, puntoY, 392);
         objetos[0].el.style.zIndex = "30";
         objetos[0].el.style.boxShadow = "0 0 45px rgba(255, 213, 30, 0.95)";
-
-        mensaje.textContent = "La luz volvió. Ahora sóplalo para apagar la página.";
+        mensaje.textContent = "Sóplalo.";
       }
     }
 
@@ -763,7 +710,7 @@
       capaOscura.style.opacity = 1;
       capaLuz.style.opacity = 0;
       capaLuz.style.transform = "translate(-50%, -50%) scale(0)";
-      mensaje.textContent = "Soplaste... y apagaste la página.";
+      mensaje.textContent = "Soplaste...";
       if (objetos[0]) objetos[0].el.style.opacity = "0";
       if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
       return true;
@@ -774,7 +721,7 @@
         setTimeout(() => {
           p.vy -= 12 + Math.random() * 8;
           p.vx += (Math.random() - 0.5) * 8;
-          reproducir("pop");
+          reproducir("nota", p.nota);
         }, i * 120);
       });
     }
@@ -783,7 +730,7 @@
       p.el.classList.add("explota");
       reproducir("explosion");
       for (let i = 0; i < 10; i++) {
-        crearPunto(p.color, (p.x / window.innerWidth) * 100, (p.y / window.innerHeight) * 100);
+        crearPunto(p.color, (p.x / window.innerWidth) * 100, (p.y / window.innerHeight) * 100, p.nota);
         const n = objetos[objetos.length - 1];
         n.vx = (Math.random() - 0.5) * 28;
         n.vy = (Math.random() - 0.5) * 28;
@@ -799,7 +746,7 @@
       orientacion.beta = e.beta || 0;
       orientacion.gamma = e.gamma || 0;
 
-      if (["normal", "explosionOscura"].includes(paginas[paginaActual].tipo)) {
+      if (["normal", "arrastre", "explosionOscura"].includes(paginas[paginaActual].tipo)) {
         objetos.forEach(p => {
           p.vx += orientacion.gamma * 0.012;
           p.vy += orientacion.beta * 0.006;
@@ -815,35 +762,36 @@
       const ahora = Date.now();
 
       if (fuerza > 35 && ahora - ultimoShake > 900) {
-        if (paginas[paginaActual].tipo === "ejercicio") {
+        ultimoShake = ahora;
+        const tipo = paginas[paginaActual].tipo;
+
+        if (tipo === "explosionOscura") {
+          activarExplosionOscura();
+          return;
+        }
+
+        if (tipo === "ejercicio") {
           mensaje.textContent = "¡Sigue moviéndote!";
-          objetos.forEach((p, i) => {
+          objetos.forEach(p => {
             p.vx += (Math.random() - 0.5) * 60;
             p.vy += (Math.random() - 0.5) * 60;
             p.el.style.transform = `translate(-50%, -50%) scale(${1 + Math.random() * 2})`;
           });
           reproducir("explosion");
           fondoColor.style.background = `hsl(${Math.random()*360}, 90%, 70%)`;
-        }
-        ultimoShake = ahora;
-        const tipo = paginas[paginaActual].tipo;
-
-        if (tipo === "explosionOscura" && !explosionRealizada) {
-          activarExplosionOscura();
           return;
         }
 
         if (tipo === "galaxia") {
           mensaje.textContent = "La galaxia despertó.";
-          objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 35; p.vy += (Math.random() - 0.5) * 35; });
           reproducir("explosion");
-          return;
         }
 
-        mensaje.textContent = "¡Agitado!";
-        objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 24; p.vy += (Math.random() - 0.5) * 24; });
+        objetos.forEach(p => {
+          p.vx += (Math.random() - 0.5) * 24;
+          p.vy += (Math.random() - 0.5) * 24;
+        });
         reproducir("pop");
-        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
       }
     });
 
@@ -851,6 +799,13 @@
       if (paginas[paginaActual].tipo === "camara" && !camaraActiva) activarCamara();
       puntero = { x: e.clientX, y: e.clientY, activo: true };
       inicioToqueY = e.clientY;
+
+      if (paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
+        clearInterval(intervaloOscuridadManual);
+        intervaloOscuridadManual = setInterval(() => {
+          luzAmbiente = Math.max(0, luzAmbiente - 0.035);
+        }, 70);
+      }
     });
 
     window.addEventListener("pointermove", e => {
@@ -867,25 +822,71 @@
     window.addEventListener("pointerup", () => {
       puntero.activo = false;
       inicioToqueY = null;
+      clearInterval(intervaloOscuridadManual);
+      if (paginas[paginaActual].tipo === "luz" && !sensorLuzDisponible) {
+        const subirLuz = setInterval(() => {
+          luzAmbiente = Math.min(1, luzAmbiente + 0.025);
+          if (luzAmbiente >= 1) clearInterval(subirLuz);
+        }, 70);
+      }
     });
 
     async function activarCamara() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-        videoCamara.srcObject = stream;
-        videoCamara.style.opacity = 0.35;
+        streamCamara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        videoCamara.srcObject = streamCamara;
+        videoCamara.style.opacity = 0.32;
         camaraActiva = true;
-        camaraLista = true;
-        mensaje.textContent = "Cámara activa. Muévete: los puntos reaccionan a tu presencia.";
-
-        // Reacción simple sin análisis pesado: usa orientación y movimiento del dispositivo como sustituto visual.
-        // Más adelante podemos cambiar esto por detección real de movimiento en video.
-        setInterval(() => {
-          movimientoCamara.x = Math.sin(Date.now() / 900) * 0.4 + (orientacion.gamma || 0) / 90;
-          movimientoCamara.y = Math.cos(Date.now() / 1100) * 0.4 + (orientacion.beta || 0) / 160;
-        }, 120);
+        frameAnterior = null;
+        mensaje.textContent = "Ahora, ¡Muévete!";
       } catch (error) {
-        mensaje.textContent = "No se pudo activar la cámara. Revisa permisos del navegador.";
+        mensaje.textContent = "No se pudo activar la cámara.";
+      }
+    }
+
+    function apagarCamara() {
+      if (streamCamara) streamCamara.getTracks().forEach(track => track.stop());
+      streamCamara = null;
+      videoCamara.srcObject = null;
+      videoCamara.style.opacity = 0;
+      camaraActiva = false;
+      frameAnterior = null;
+    }
+
+    function detectarMovimientoCamara() {
+      if (!camaraActiva || videoCamara.readyState < 2) return;
+      const w = 48, h = 36;
+      canvasCamara.width = w;
+      canvasCamara.height = h;
+      ctxCamara.drawImage(videoCamara, 0, 0, w, h);
+      const img = ctxCamara.getImageData(0, 0, w, h).data;
+
+      if (!frameAnterior) {
+        frameAnterior = new Uint8ClampedArray(img);
+        return;
+      }
+
+      let suma = 0, mx = 0, my = 0, cuenta = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const diff = Math.abs(img[idx] - frameAnterior[idx]) + Math.abs(img[idx+1] - frameAnterior[idx+1]) + Math.abs(img[idx+2] - frameAnterior[idx+2]);
+          if (diff > 55) {
+            suma += diff;
+            mx += x;
+            my += y;
+            cuenta++;
+          }
+        }
+      }
+      frameAnterior = new Uint8ClampedArray(img);
+
+      if (cuenta > 8) {
+        movimientoCamara.x = (mx / cuenta - w / 2) / (w / 2);
+        movimientoCamara.y = (my / cuenta - h / 2) / (h / 2);
+        movimientoCamara.fuerza = Math.min(1, suma / 90000);
+      } else {
+        movimientoCamara.fuerza *= 0.92;
       }
     }
 
@@ -900,7 +901,7 @@
         microfonoActivo = true;
         detectarSonido();
       } catch (error) {
-        mensaje.textContent = "Micrófono no activado. Revisa permisos.";
+        microfonoActivo = false;
       }
     }
 
@@ -913,40 +914,30 @@
       const ahora = Date.now();
       const tipo = paginas[paginaActual].tipo;
 
-      if (volumen > 24 && ahora - ultimoSoplo > 450) {
+      if (volumen > 28 && ahora - ultimoSoplo > 450) {
         ultimoSoplo = ahora;
 
         if (apagarEscenaPorSoplo()) {
-          siguientePagina();
+          setTimeout(siguientePagina, 650);
           requestAnimationFrame(detectarSonido);
           return;
         }
 
         if (tipo === "respiracion") {
-          mensaje.textContent = volumen > 42 ? "Tormenta de soplo." : "Soplo suave.";
           objetos.forEach(p => {
-            p.vx += (Math.random() - 0.5) * (volumen > 42 ? 18 : 4);
-            p.vy -= volumen > 42 ? 12 : 4;
+            p.vx += (Math.random() - 0.5) * (volumen > 45 ? 20 : 5);
+            p.vy -= volumen > 45 ? 12 : 4;
           });
-          if (volumen > 42) reproducir("explosion");
-        } else if (tipo === "ruido") {
-          mensaje.textContent = "Los puntos tiemblan con el ruido.";
-          objetos.forEach(p => {
-            p.vx += (Math.random() - 0.5) * 12;
-            p.vy += (Math.random() - 0.5) * 12;
-          });
-        } else {
-          mensaje.textContent = "¡Soplo detectado!";
-          objetos.forEach(p => { p.vx += (Math.random() - 0.5) * 4; p.vy -= 5; });
+          if (volumen > 45) reproducir("explosion");
         }
 
-        if (navigator.vibrate) navigator.vibrate(25);
+        if (tipo === "ruido") {
+          objetos.forEach(p => {
+            p.vx += (Math.random() - 0.5) * 14;
+            p.vy += (Math.random() - 0.5) * 14;
+          });
+        }
       }
-
-      if (tipo !== "explosionOscura" && volumen > 46 && ahora - ultimoCambioPagina > TIEMPO_ENTRE_CAMBIO_PAGINA && tipo !== "respiracion" && tipo !== "ruido") {
-        siguientePagina();
-      }
-
       requestAnimationFrame(detectarSonido);
     }
 
@@ -956,7 +947,7 @@
           const sensor = new AmbientLightSensor();
           sensor.addEventListener("reading", () => {
             sensorLuzDisponible = true;
-            luzAmbiente = Math.max(0, Math.min(1, sensor.illuminance / 500));
+            luzAmbiente = Math.max(0, Math.min(1, sensor.illuminance / 450));
           });
           sensor.start();
         }
@@ -966,15 +957,16 @@
     }
 
     async function pedirPermisos() {
+      iniciarAudio();
+      reproducir("pop");
+
       try {
         if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") await DeviceMotionEvent.requestPermission();
         if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") await DeviceOrientationEvent.requestPermission();
       } catch (error) {}
 
-      iniciarAudio();
-      reproducir("pop");
-      await activarMicrofono();
-      await activarSensorLuz();
+      activarMicrofono();
+      activarSensorLuz();
       sensoresActivos = true;
       panelInicio.style.display = "none";
       cargarPagina(0);
