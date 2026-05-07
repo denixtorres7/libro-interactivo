@@ -25,15 +25,27 @@
     }
 
     #paginaFondo {
+      display: none;
+    }
+
+    #fondoColor {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: white;
+      transition: background 0.6s ease, filter 0.5s ease;
+    }
+
+    #videoCamara {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      z-index: 1;
-      pointer-events: none;
-      background: white;
-      transition: filter 0.5s ease, opacity 0.5s ease;
+      object-fit: cover;
+      opacity: 0;
+      z-index: 0;
+      transform: scaleX(-1);
+      transition: opacity 0.6s ease;
     }
 
     #capaPuntos {
@@ -87,17 +99,20 @@
     #mensaje {
       position: absolute;
       left: 50%;
-      bottom: 18px;
+      top: max(18px, env(safe-area-inset-top));
+      bottom: auto;
       transform: translateX(-50%);
-      z-index: 12;
-      background: rgba(255,255,255,0.82);
-      padding: 8px 14px;
-      border-radius: 999px;
-      font-size: 14px;
-      color: #222;
+      z-index: 18;
+      background: rgba(255,255,255,0.92);
+      padding: 10px 16px;
+      border-radius: 18px;
+      font-size: clamp(15px, 3.8vw, 20px);
+      line-height: 1.25;
+      color: #111;
       pointer-events: none;
       text-align: center;
-      max-width: 92vw;
+      width: min(92vw, 680px);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
     }
 
     #panelInicio {
@@ -125,7 +140,9 @@
 </head>
 <body>
   <main id="libro">
-    <img id="paginaFondo" src="paginas/pagina01.png" alt="Página del libro" />
+    <div id="fondoColor"></div>
+    <video id="videoCamara" autoplay playsinline muted></video>
+    <img id="paginaFondo" src="" alt="" />
     <div id="capaPuntos"></div>
     <div id="capaOscura"></div>
     <div id="mensaje">Toca iniciar</div>
@@ -141,6 +158,8 @@
 
   <script>
     const paginaFondo = document.getElementById("paginaFondo");
+    const fondoColor = document.getElementById("fondoColor");
+    const videoCamara = document.getElementById("videoCamara");
     const capaPuntos = document.getElementById("capaPuntos");
     const capaOscura = document.getElementById("capaOscura");
     const mensaje = document.getElementById("mensaje");
@@ -164,26 +183,30 @@
     let orientacion = { alpha: 0, beta: 0, gamma: 0 };
     let luzAmbiente = 1;
     let sensorLuzDisponible = false;
+    let camaraActiva = false;
+    let camaraLista = false;
+    let movimientoCamara = { x: 0, y: 0 };
 
     const VELOCIDAD_MINIMA_SONIDO = 4.5;
     const VELOCIDAD_REPOSO = 0.35;
     const TIEMPO_ENTRE_CAMBIO_PAGINA = 1200;
 
     const paginas = [
-      { fondo: "paginas/pagina01.png", tipo: "normal", mensaje: "Toca el punto.", puntos: [{ color: "amarillo", x: 50, y: 52 }] },
-      { fondo: "paginas/pagina02.png", tipo: "normal", mensaje: "Arrastra los puntos con el dedo.", puntos: [{ color: "amarillo", x: 38, y: 48 }, { color: "rojo", x: 50, y: 48 }, { color: "azul", x: 62, y: 48 }] },
-      { fondo: "paginas/pagina03.png", tipo: "normal", mensaje: "Inclina el celular y los puntos caerán.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 65, y: 45 }] },
-      { fondo: "paginas/pagina04.png", tipo: "explosionOscura", mensaje: "Agita fuerte. Luego mantén presionado el punto amarillo para encender la luz.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
-      { fondo: "paginas/pagina05.png", tipo: "brujula", mensaje: "Brújula viva: gira el celular. Los puntos buscarán el norte y cambiarán de color según la hora.", puntos: crearPuntosIniciales(18) },
-      { fondo: "paginas/pagina06.png", tipo: "luz", mensaje: "Luz y sombra: ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
-      { fondo: "paginas/pagina07.png", tipo: "miedo", mensaje: "Acerca el dedo. Los puntos tendrán miedo y huirán.", puntos: crearPuntosIniciales(14) },
-      { fondo: "paginas/pagina08.png", tipo: "curiosidad", mensaje: "Mueve el dedo despacio. Los puntos te seguirán como criaturas.", puntos: crearPuntosIniciales(12) },
-      { fondo: "paginas/pagina09.png", tipo: "salto", mensaje: "Mantén presionado un punto. Al soltarlo, saltará.", puntos: crearPuntosIniciales(8) },
-      { fondo: "paginas/pagina10.png", tipo: "cadena", mensaje: "Haz saltar uno. Los demás saltarán en cadena.", puntos: crearPuntosIniciales(10) },
-      { fondo: "paginas/pagina11.png", tipo: "explotaPresion", mensaje: "Mantén demasiado tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
-      { fondo: "paginas/pagina12.png", tipo: "ruido", mensaje: "Aplaude o haz ruido. En silencio vuelven a calmarse.", puntos: crearPuntosIniciales(15) },
-      { fondo: "paginas/pagina13.png", tipo: "respiracion", mensaje: "Sopla suave: flotan. Sopla fuerte: tormenta.", puntos: crearPuntosIniciales(18) },
-      { fondo: "paginas/pagina14.png", tipo: "galaxia", mensaje: "Agita el celular. Los puntos formarán una galaxia.", puntos: crearPuntosIniciales(28) }
+      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55 }] },
+      { tipo: "arrastre", mensaje: "Arrastra los puntos con el dedo. Al soltarlos, siguen con impulso.", puntos: [{ color: "amarillo", x: 32, y: 55 }, { color: "rojo", x: 50, y: 55 }, { color: "azul", x: 68, y: 55 }] },
+      { tipo: "normal", mensaje: "Inclina el celular. Los puntos ruedan como si tuvieran gravedad.", puntos: [{ color: "amarillo", x: 28, y: 45 }, { color: "rojo", x: 50, y: 45 }, { color: "azul", x: 72, y: 45 }] },
+      { tipo: "explosionOscura", mensaje: "Agita fuerte. Después mantén presionado el punto amarillo para encender la luz.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
+      { tipo: "brujula", mensaje: "Brújula viva: gira el celular. Los puntos forman una flecha hacia el norte y cambian según la hora.", puntos: crearPuntosIniciales(21) },
+      { tipo: "luz", mensaje: "Luz y sombra: ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
+      { tipo: "miedo", mensaje: "Acerca el dedo. Los puntos tendrán miedo y huirán.", puntos: crearPuntosIniciales(14) },
+      { tipo: "curiosidad", mensaje: "Mueve el dedo despacio. Los puntos te seguirán como criaturas.", puntos: crearPuntosIniciales(12) },
+      { tipo: "salto", mensaje: "Mantén presionado un punto. Al soltarlo, saltará.", puntos: crearPuntosIniciales(8) },
+      { tipo: "cadena", mensaje: "Haz saltar uno. Los demás saltarán en cadena.", puntos: crearPuntosIniciales(10) },
+      { tipo: "explotaPresion", mensaje: "Mantén demasiado tiempo. Los puntos no resistirán.", puntos: crearPuntosIniciales(10) },
+      { tipo: "ruido", mensaje: "Aplaude o haz ruido. En silencio vuelven a calmarse.", puntos: crearPuntosIniciales(15) },
+      { tipo: "respiracion", mensaje: "Sopla suave: flotan. Sopla fuerte: tormenta.", puntos: crearPuntosIniciales(18) },
+      { tipo: "galaxia", mensaje: "Agita el celular. Los puntos formarán una galaxia.", puntos: crearPuntosIniciales(28) },
+      { tipo: "camara", mensaje: "Cámara viva: toca la pantalla para activar cámara. Muévete y los puntos reaccionarán.", puntos: crearPuntosIniciales(18) }
     ];
 
     function crearPuntosIniciales(cantidad) {
@@ -201,11 +224,20 @@
 
     function paletaPorHora() {
       const h = new Date().getHours();
-      if (h >= 5 && h < 11) return ["#ffd166", "#ffb703", "#fb8500"];      // mañana
-      if (h >= 11 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];     // tarde
-      if (h >= 17 && h < 20) return ["#f15bb5", "#fee440", "#f9844a"];     // atardecer
-      if (h >= 20 || h < 2) return ["#00bbf9", "#4361ee", "#7209b7"];      // noche
-      return ["#03045e", "#023e8a", "#3a0ca3"];                            // madrugada
+      // En la noche y madrugada: fríos. Durante el día: cálidos.
+      if (h >= 6 && h < 12) return ["#ffd166", "#ffb703", "#fb8500"];      // mañana cálida
+      if (h >= 12 && h < 17) return ["#ffbe0b", "#fb5607", "#ff006e"];     // tarde cálida intensa
+      if (h >= 17 && h < 19) return ["#f15bb5", "#fee440", "#f9844a"];     // atardecer
+      return ["#00bbf9", "#4361ee", "#7209b7", "#3a0ca3", "#023e8a"];    // noche/madrugada fría
+    }
+
+    function colorFondoPorPagina(tipo) {
+      const h = new Date().getHours();
+      const esNoche = h >= 19 || h < 6;
+      if (["brujula", "luz", "galaxia", "camara"].includes(tipo)) {
+        return esNoche ? "#07111f" : "#fffaf0";
+      }
+      return "#ffffff";
     }
 
     function iniciarAudio() {
@@ -232,10 +264,10 @@
       filtro.type = "lowpass";
       const gain = audioContext.createGain();
 
-      if (tipo === "pop") { filtro.frequency.value = 900; gain.gain.value = 0.08; }
-      if (tipo === "rebote") { filtro.frequency.value = 550; gain.gain.value = 0.055; }
-      if (tipo === "caida") { filtro.frequency.value = 260; gain.gain.value = 0.06; }
-      if (tipo === "explosion") { filtro.frequency.setValueAtTime(900, t); filtro.frequency.exponentialRampToValueAtTime(90, t + duracion); gain.gain.value = 0.34; }
+      if (tipo === "pop") { filtro.frequency.value = 900; gain.gain.value = 0.18; }
+      if (tipo === "rebote") { filtro.frequency.value = 550; gain.gain.value = 0.13; }
+      if (tipo === "caida") { filtro.frequency.value = 260; gain.gain.value = 0.15; }
+      if (tipo === "explosion") { filtro.frequency.setValueAtTime(1200, t); filtro.frequency.exponentialRampToValueAtTime(90, t + duracion); gain.gain.value = 0.55; }
 
       gain.gain.exponentialRampToValueAtTime(0.001, t + duracion);
       ruido.connect(filtro);
@@ -248,16 +280,18 @@
     function cargarPagina(indice) {
       paginaActual = indice;
       const pagina = paginas[paginaActual];
-      paginaFondo.src = pagina.fondo;
+      paginaFondo.src = "";
+      videoCamara.style.opacity = 0;
+      camaraActiva = false;
       mensaje.textContent = pagina.mensaje;
+      fondoColor.style.background = colorFondoPorPagina(pagina.tipo);
       capaPuntos.innerHTML = "";
       objetos = [];
       explosionRealizada = false;
       nivelOscuridad = 0;
       capaOscura.style.opacity = 0;
       capaOscura.style.transition = "opacity 0.5s ease";
-      paginaFondo.style.filter = "none";
-      paginaFondo.style.opacity = 1;
+      fondoColor.style.filter = "none";
 
       pagina.puntos.forEach(p => crearPunto(p.color, p.x, p.y));
       aplicarColorPorHora();
@@ -449,6 +483,7 @@
 
     function aplicarComportamientoDePagina(tipo) {
       if (tipo === "brujula") comportamientoBrujula();
+      if (tipo === "camara") comportamientoCamara();
       if (tipo === "luz") comportamientoLuz();
       if (tipo === "miedo") comportamientoMiedo();
       if (tipo === "curiosidad") comportamientoCuriosidad();
@@ -461,22 +496,39 @@
       const norte = orientacion.alpha || 0;
       const angulo = ((360 - norte) * Math.PI) / 180;
       const centroX = window.innerWidth / 2;
-      const centroY = window.innerHeight / 2;
+      const centroY = window.innerHeight / 2 + 25;
+
+      // Forma de flecha: punta, cuerpo y cola. Luego se rota hacia el norte.
+      const formaFlecha = [
+        [0, -190],
+        [-35, -130], [0, -145], [35, -130],
+        [0, -95],
+        [0, -55],
+        [0, -15],
+        [0, 25],
+        [-55, 65], [-25, 65], [0, 65], [25, 65], [55, 65],
+        [-42, 105], [-14, 105], [14, 105], [42, 105],
+        [-28, 145], [0, 145], [28, 145],
+        [0, 180]
+      ];
 
       objetos.forEach((p, i) => {
-        const distancia = 70 + (i % 6) * 28;
-        const lateral = (Math.floor(i / 6) - 1) * 42;
-        const tx = centroX + Math.sin(angulo) * distancia + Math.cos(angulo) * lateral;
-        const ty = centroY - Math.cos(angulo) * distancia + Math.sin(angulo) * lateral;
-        p.vx += (tx - p.x) * 0.004;
-        p.vy += (ty - p.y) * 0.004;
+        const punto = formaFlecha[i % formaFlecha.length];
+        const localX = punto[0];
+        const localY = punto[1];
+        const tx = centroX + localX * Math.cos(angulo) - localY * Math.sin(angulo);
+        const ty = centroY + localX * Math.sin(angulo) + localY * Math.cos(angulo);
+
+        p.vx += (tx - p.x) * 0.012;
+        p.vy += (ty - p.y) * 0.012;
         p.el.style.background = paleta[i % paleta.length];
+        p.el.style.boxShadow = `0 0 22px ${paleta[i % paleta.length]}99`;
       });
     }
 
     function comportamientoLuz() {
       const claridad = Math.max(0, Math.min(1, luzAmbiente));
-      paginaFondo.style.filter = `brightness(${0.45 + claridad * 0.75})`;
+      fondoColor.style.filter = `brightness(${0.45 + claridad * 0.75})`;
       capaOscura.style.opacity = 1 - claridad;
       objetos.forEach((p, i) => {
         const paleta = claridad > 0.5 ? ["#ffd166", "#fb8500", "#ffb703"] : ["#4361ee", "#3a0ca3", "#00bbf9"];
@@ -536,6 +588,16 @@
       });
     }
 
+    function comportamientoCamara() {
+      if (!camaraActiva) return;
+      objetos.forEach((p, i) => {
+        const tx = window.innerWidth / 2 + movimientoCamara.x * 180 + Math.sin(Date.now() / 400 + i) * 90;
+        const ty = window.innerHeight / 2 + movimientoCamara.y * 180 + Math.cos(Date.now() / 400 + i) * 90;
+        p.vx += (tx - p.x) * 0.006;
+        p.vy += (ty - p.y) * 0.006;
+      });
+    }
+
     function sonarImpacto(p, impacto, tipo) {
       const ahora = Date.now();
       if (impacto < VELOCIDAD_MINIMA_SONIDO) return;
@@ -587,7 +649,7 @@
       setTimeout(() => {
         capaPuntos.innerHTML = "";
         objetos = [];
-        crearPunto("amarillo", 50, 50);
+        crearPunto("amarillo", 50, 38);
         objetos[0].el.style.opacity = "1";
         objetos[0].el.style.boxShadow = "0 0 24px rgba(255, 213, 30, 0.9)";
         mensaje.textContent = "Mantén presionado el punto amarillo para encender la luz.";
@@ -686,6 +748,7 @@
     });
 
     window.addEventListener("pointerdown", e => {
+      if (paginas[paginaActual].tipo === "camara" && !camaraActiva) activarCamara();
       puntero = { x: e.clientX, y: e.clientY, activo: true };
       inicioToqueY = e.clientY;
     });
@@ -705,6 +768,26 @@
       puntero.activo = false;
       inicioToqueY = null;
     });
+
+    async function activarCamara() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        videoCamara.srcObject = stream;
+        videoCamara.style.opacity = 0.35;
+        camaraActiva = true;
+        camaraLista = true;
+        mensaje.textContent = "Cámara activa. Muévete: los puntos reaccionan a tu presencia.";
+
+        // Reacción simple sin análisis pesado: usa orientación y movimiento del dispositivo como sustituto visual.
+        // Más adelante podemos cambiar esto por detección real de movimiento en video.
+        setInterval(() => {
+          movimientoCamara.x = Math.sin(Date.now() / 900) * 0.4 + (orientacion.gamma || 0) / 90;
+          movimientoCamara.y = Math.cos(Date.now() / 1100) * 0.4 + (orientacion.beta || 0) / 160;
+        }, 120);
+      } catch (error) {
+        mensaje.textContent = "No se pudo activar la cámara. Revisa permisos del navegador.";
+      }
+    }
 
     async function activarMicrofono() {
       try {
