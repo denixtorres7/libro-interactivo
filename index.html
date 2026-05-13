@@ -203,7 +203,7 @@
       <div>
         <h1>Libro sensorial</h1>
         <p>Toca para activar sonido, movimiento, micrófono y sensores.</p>
-        <p style="font-weight:600; margin-top:6px;">Autora: escribe tu nombre aquí</p>
+        <p style="font-weight:600; margin-top:6px;">Autora: Denize Asceneth Torres Ruiz</p>
         <button id="btnIniciar">Iniciar experiencia</button>
       </div>
     </section>
@@ -257,7 +257,7 @@
     const notas = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25, 587.33, 659.25];
 
     function crearPuntosIniciales(cantidad) {
-      const colores = ["amarillo", "rojo", "azul"];
+      const colores = ["verde", "violeta", "naranja"];
       const lista = [];
       for (let i = 0; i < cantidad; i++) {
         lista.push({
@@ -271,17 +271,17 @@
     }
 
     const paginas = [
-      { tipo: "normal", mensaje: "Toca el punto. Está vivo.", puntos: [{ color: "amarillo", x: 50, y: 55, nota: 392 }] },
+      { tipo: "normal", mensaje: "Mueve el punto. Está vivo.", puntos: [{ color: "naranja", x: 50, y: 55, nota: 392 }] },
       { tipo: "huecoInclinacion", mensaje: "Inclina el celular.", puntos: [
-        { color: "amarillo", x: 22, y: 36, nota: 330 }, { color: "rojo", x: 38, y: 34, nota: 392 }, { color: "azul", x: 54, y: 36, nota: 494 },
-        { color: "amarillo", x: 70, y: 34, nota: 523 }, { color: "rojo", x: 30, y: 50, nota: 587 }, { color: "azul", x: 48, y: 50, nota: 659 },
-        { color: "amarillo", x: 66, y: 50, nota: 440 }, { color: "rojo", x: 40, y: 64, nota: 349 }, { color: "azul", x: 58, y: 64, nota: 294 }
+        { color: "naranja", x: 22, y: 36, nota: 330 }, { color: "rojo", x: 38, y: 34, nota: 392 }, { color: "azul", x: 54, y: 36, nota: 494 },
+        { color: "naranja", x: 70, y: 34, nota: 523 }, { color: "rojo", x: 30, y: 50, nota: 587 }, { color: "violeta", x: 48, y: 50, nota: 659 },
+        { color: "naranja", x: 66, y: 50, nota: 440 }, { color: "rojo", x: 40, y: 64, nota: 349 }, { color: "azul", x: 58, y: 64, nota: 294 }
       ] },
       { tipo: "billar", mensaje: "Haz una carambola y sácalas por el huequito.", puntos: [{ color: "amarillo", x: 30, y: 58, nota: 330 }, { color: "rojo", x: 58, y: 45, nota: 392 }, { color: "azul", x: 70, y: 62, nota: 494 }] },
       { tipo: "explosionOscura", mensaje: "Agita fuerte. Después, mantén presionado el punto amarillo.", puntos: [{ color: "amarillo", x: 35, y: 45 }, { color: "rojo", x: 48, y: 45 }, { color: "azul", x: 61, y: 45 }, { color: "amarillo", x: 43, y: 58 }, { color: "rojo", x: 56, y: 58 }] },
       { tipo: "brujula", mensaje: "Gira el celular.", puntos: crearPuntosIniciales(21) },
-      { tipo: "luz", mensaje: "Ilumina o tapa el celular. Si no funciona, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
-      { tipo: "miedo", mensaje: "Acerca el dedo.", puntos: crearPuntosIniciales(14) },
+      { tipo: "luz", mensaje: "Ilumina el celular, para ello, desliza arriba/abajo.", puntos: crearPuntosIniciales(16) },
+      { tipo: "miedo", mensaje: "Acerca el dedo, estos chicos son tímidos.", puntos: crearPuntosIniciales(14) },
       { tipo: "curiosidad", mensaje: "Mueve el dedo despacio por la pantalla.", puntos: crearPuntosIniciales(12) },
       { tipo: "salto", mensaje: "Mantén presionado un punto. Ahora, ¡Suéltalo!", puntos: crearPuntosIniciales(8) },
       { tipo: "cadena", mensaje: "Haz saltar un punto.", puntos: crearPuntosIniciales(10) },
